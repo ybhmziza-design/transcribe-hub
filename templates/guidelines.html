@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Transcription Guidelines & Handbook - TranscribeHub{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+    <div class="mb-8">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Transcription Style Guide & Handbook</h1>
+        <p class="text-slate-400 text-sm mt-1">Official formatting and quality standards for transcribers on TranscribeHub.</p>
+    </div>
+
+    <div class="space-y-6">
+
+        <!-- Verbatim Standards -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
+            <h2 class="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span>📖</span> 1. Clean Verbatim vs. Strict Verbatim
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4">
+                Unless specified otherwise in the client's guidelines, our default format across the platform is <strong>Clean Verbatim</strong>.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div class="p-4 rounded-xl bg-slate-950 border border-emerald-900/40">
+                    <span class="block font-bold text-emerald-400 mb-2">✓ Clean Verbatim (Default)</span>
+                    <ul class="space-y-1.5 text-slate-300 list-disc list-inside">
+                        <li>Remove filler words: <em>"um", "uh", "ah", "er"</em></li>
+                        <li>Remove false starts and stuttering (e.g., <em>"I th- I think" → "I think"</em>)</li>
+                        <li>Preserve slang like <em>"gonna", "wanna"</em> only if essential to tone; prefer formal spelling</li>
+                        <li>Maintain speaker meaning without editorial rewriting</li>
+                    </ul>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-950 border border-indigo-900/40">
+                    <span class="block font-bold text-indigo-400 mb-2">★ Strict Verbatim (When Requested)</span>
+                    <ul class="space-y-1.5 text-slate-300 list-disc list-inside">
+                        <li>Capture every vocalization, hesitation, and repetition</li>
+                        <li>Keep all stutters: <em>"I, um, I was going to, ah, mention..."</em></li>
+                        <li>Include throat clearing and verbal tics</li>
+                        <li>Required for legal depositions and linguistics studies</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Speaker Identification -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
+            <h2 class="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span>🗣️</span> 2. Speaker Labels & Tags
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-4">
+                Clearly separate dialogue whenever speakers change.
+            </p>
+            <div class="space-y-2 font-mono text-xs text-slate-300 p-4 rounded-xl bg-slate-950 border border-slate-800">
+                <p><span class="text-indigo-400">Interviewer:</span> Welcome to the conference. Can you explain your architecture?</p>
+                <p><span class="text-emerald-400">Dr. Sterling:</span> Absolutely. We transitioned to a distributed ledger model last quarter.</p>
+                <p><span class="text-indigo-400">Interviewer:</span> How did that impact transaction latency?</p>
+            </div>
+        </div>
+
+        <!-- Timestamps & Sound Events -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
+            <h2 class="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span>⏱️</span> 3. Timestamps & Non-Speech Events
+            </h2>
+            <div class="space-y-3 text-xs sm:text-sm text-slate-300">
+                <p>Use standard bracket tags for sound events and speech interruptions:</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <strong class="text-amber-400 block mb-1">[inaudible 02:15]</strong>
+                        <span>When a word or phrase cannot be deciphered after 3 listens, add timestamp inside tag.</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <strong class="text-slate-200 block mb-1">[crosstalk]</strong>
+                        <span>When two or more individuals talk simultaneously over each other.</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <strong class="text-slate-200 block mb-1">[laughter] / [applause]</strong>
+                        <span>Significant crowd reactions or prolonged laughter that pauses the speaker.</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                        <strong class="text-slate-200 block mb-1">[music]</strong>
+                        <span>Intro/outro theme tracks or background audio interludes.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

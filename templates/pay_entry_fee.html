@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Account Activation — Pay with Paystack — TranscribeHub{% endblock %}
+
+{% block head %}
+<!-- Paystack Inline Popup JS -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-4 text-2xl shadow-lg shadow-emerald-500/10">
+            <svg class="w-8 h-8 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 4h20v4H2V4zm0 6h20v10H2V10zm2 2v6h16v-6H4zm2 2h6v2H6v-2z"/>
+            </svg>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Activate Your Worker Account</h1>
+        <p class="text-slate-400 text-sm mt-2 max-w-md mx-auto">
+            Pay the one-time registration fee of <strong class="text-emerald-400 font-bold">{{ currency }} {{ "{:,}".format(amount) }}</strong> securely through Paystack using <strong>M-Pesa, Credit/Debit Card, or Bank Transfer</strong>.
+        </p>
+    </div>
+
+    <!-- Payment Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+
+        <!-- Amount summary -->
+        <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+            <div>
+                <span class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Entry Fee</span>
+                <span class="text-xs text-slate-500">Transcriber Onboarding & Platform Setup</span>
+            </div>
+            <div class="text-right">
+                <span class="text-2xl sm:text-3xl font-black text-emerald-400">{{ currency }} {{ "{:,}".format(amount) }}</span>
+            </div>
+        </div>
+
+        <!-- Worker Info -->
+        <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
+            <div class="flex justify-between"><span class="text-slate-500">Full Name:</span><strong class="text-white">{{ user.full_name }}</strong></div>
+            <div class="flex justify-between"><span class="text-slate-500">Email:</span><span class="text-slate-300">{{ user.email }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Payment Processor:</span><span class="text-emerald-400 font-semibold">Paystack (M-Pesa, Card, Bank)</span></div>
+        </div>
+
+        <!-- Paystack Button & Action -->
+        <div class="space-y-4 pt-2">
+            <button id="paystack-btn" type="button" onclick="payWithPaystack()"
+                    class="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2 group">
+                <svg class="w-5 h-5 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span>Pay {{ currency }} {{ "{:,}".format(amount) }} with Paystack</span>
+                <span>→</span>
+            </button>
+
+            <!-- Loading Spinner (hidden by default) -->
+            <div id="pay-loader" class="hidden text-center py-2 text-xs text-slate-400 flex items-center justify-center gap-2">
+                <div class="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                <span>Connecting to Paystack gateway...</span>
+            </div>
+        </div>
+
+        <!-- Payment Channels Supported -->
+        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-center gap-4 text-slate-500 text-xs">
+            <span class="flex items-center gap-1">🟢 M-Pesa</span>
+            <span>•</span>
+            <span class="flex items-center gap-1">💳 Visa & Mastercard</span>
+            <span>•</span>
+            <span class="flex items-center gap-1">🏦 Bank Transfer</span>
+        </div>
+
+        <!-- Free to browse link -->
+        <p class="text-center text-xs text-slate-400 pt-2">
+            Just exploring? <a href="{{ url_for('index') }}" class="text-indigo-400 hover:underline">Return to browse marketplace</a>
+        </p>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PAYSTACK_PUBLIC_KEY = "{{ paystack_public_key }}";
+const USER_EMAIL = "{{ user.email }}";
+const AMOUNT = {{ amount }};
+const CURRENCY = "{{ currency }}";
+const USER_PHONE = "{{ user.phone or '' }}";
+const USER_NAME = "{{ user.full_name }}";
+
+async function payWithPaystack() {
+    const btn = document.getElementById('paystack-btn');
+    const loader = document.getElementById('pay-loader');
+
+    btn.disabled = true;
+    btn.classList.add('opacity-75');
+    loader.classList.remove('hidden');
+
+    try {
+        // First check backend initialization
+        const resp = await fetch("{{ url_for('paystack_initialize') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        const data = await resp.json();
+
+        loader.classList.add('hidden');
+        btn.disabled = false;
+        btn.classList.remove('opacity-75');
+
+        if (data.status === 'success' && data.authorization_url) {
+            // Live / Test Mode: redirect to Paystack Checkout page
+            window.location.href = data.authorization_url;
+            return;
+        }
+
+        // If Paystack Inline SDK is loaded with a public key
+        if (typeof PaystackPop !== 'undefined' && PAYSTACK_PUBLIC_KEY && !PAYSTACK_PUBLIC_KEY.startsWith('pk_test_sample')) {
+            const handler = PaystackPop.setup({
+                key: PAYSTACK_PUBLIC_KEY,
+                email: USER_EMAIL,
+                amount: Math.round(AMOUNT * 100),
+                currency: CURRENCY,
+                ref: data.reference || ('TH-' + Date.now()),
+                metadata: {
+                    custom_fields: [
+                        { display_name: "Transcriber Name", variable_name: "transcriber_name", value: USER_NAME }
+                    ]
+                },
+                callback: function(response) {
+                    // Payment successful: verify with server
+                    verifyPaymentOnServer(response.reference);
+                },
+                onClose: function() {
+                    showToast('Payment window closed.', 'warning');
+                }
+            });
+            handler.openIframe();
+        } else {
+            // Development / Test confirmation fallback if custom keys are not yet configured in admin
+            if (confirm("Paystack Gateway Simulation:\n\nConfirm payment of " + CURRENCY + " " + AMOUNT + " for " + USER_NAME + "?\n\n(To use live Paystack M-Pesa / Card checkout, add your Paystack API keys in the Admin Dashboard)")) {
+                verifyPaymentOnServer(data.reference || ('TH-MOCK-' + Date.now()));
+            }
+        }
+    } catch (err) {
+        loader.classList.add('hidden');
+        btn.disabled = false;
+        btn.classList.remove('opacity-75');
+        showToast('Error connecting to payment service: ' + err.message, 'error');
+    }
+}
+
+async function verifyPaymentOnServer(reference) {
+    showToast('Verifying payment with Paystack...', 'info');
+    try {
+        const res = await fetch("{{ url_for('paystack_verify_api') }}", {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ reference: reference })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            showToast('Payment verified successfully!', 'success');
+            setTimeout(() => {
+                window.location.href = result.redirect_url || "{{ url_for('index') }}";
+            }, 800);
+        } else {
+            showToast('Verification failed: ' + result.message, 'error');
+        }
+    } catch (e) {
+        showToast('Network error during verification', 'error');
+    }
+}
+</script>
+{% endblock %}

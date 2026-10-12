@@ -1,0 +1,134 @@
+/* TranscribeHub Custom Styles & Studio Utilities */
+
+:root {
+  --primary-accent: #6366f1;
+  --primary-hover: #4f46e5;
+  --studio-bg: #0f172a;
+  --studio-panel: #1e293b;
+  --studio-border: #334155;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
+/* Glassmorphism & Modern card elevation */
+.card-hover {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+/* Studio Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* Dark studio scrollbar */
+.dark-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark-scrollbar::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Active Segment Highlight Pulse */
+.segment-card.active-playback {
+  border-left: 4px solid #6366f1 !important;
+  background-color: #1e1b4b !important;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+}
+
+/* Audio Waveform Canvas Animation Simulation */
+.waveform-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+.waveform-bar {
+  width: 3px;
+  background-color: #6366f1;
+  border-radius: 2px;
+  animation: pulseHeight 1.2s ease-in-out infinite alternate;
+}
+.waveform-bar:nth-child(2) { animation-delay: 0.2s; }
+.waveform-bar:nth-child(3) { animation-delay: 0.4s; }
+.waveform-bar:nth-child(4) { animation-delay: 0.1s; }
+.waveform-bar:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes pulseHeight {
+  0% { height: 4px; }
+  100% { height: 22px; }
+}
+
+/* Keyboard Shortcut Pill */
+.kbd-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.375rem;
+  background-color: #334155;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+
+/* Range input styled */
+input[type=range].playback-slider {
+  accent-color: #6366f1;
+}
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.toast {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

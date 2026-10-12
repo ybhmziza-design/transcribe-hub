@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — TranscribeHub{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md">
+
+        <!-- Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
+
+            <div class="text-center mb-8">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-600/30">
+                    <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-extrabold text-white">Create Worker Account</h1>
+                <p class="text-slate-400 text-xs mt-1.5">Sign up to claim video transcription tasks and earn bounties.</p>
+            </div>
+
+            <!-- Notice on Entry Fee -->
+            <div class="p-3.5 mb-6 rounded-xl bg-amber-950/40 border border-amber-900/60 flex items-start gap-2.5 text-xs text-amber-300">
+                <span class="text-base leading-none">ℹ️</span>
+                <div>
+                    <strong>One-time activation fee:</strong> A registration fee of <strong>{{ entry_currency }} {{ "{:,}".format(entry_fee) }}</strong> is required before claiming tasks to facilitate business operations & platform upkeep.
+                </div>
+            </div>
+
+            <form method="POST" action="{{ url_for('signup', next=request.args.get('next', '')) }}" class="space-y-4">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Full Name *</label>
+                    <input type="text" name="full_name" required placeholder="e.g. John Doe"
+                           class="w-full bg-slate-950 text-white text-sm px-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Username *</label>
+                    <input type="text" name="username" required placeholder="e.g. johndoe"
+                           class="w-full bg-slate-950 text-white text-sm px-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Email Address *</label>
+                    <input type="email" name="email" required placeholder="name@example.com"
+                           class="w-full bg-slate-950 text-white text-sm px-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Phone Number (M-Pesa / Contact)</label>
+                    <input type="tel" name="phone" placeholder="e.g. 0712345678"
+                           class="w-full bg-slate-950 text-white text-sm px-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- Payout Details -->
+                <div class="p-4 rounded-xl border border-slate-700 bg-slate-950/50 space-y-3">
+                    <p class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        💸 Where to Send Your Earnings Payments
+                    </p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Payment Method</label>
+                            <select name="payout_method"
+                                    class="w-full bg-slate-900 text-white text-sm px-3 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500 appearance-none">
+                                <option value="">— Select —</option>
+                                <option value="M-Pesa">M-Pesa</option>
+                                <option value="Airtel Money">Airtel Money</option>
+                                <option value="T-Kash">T-Kash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="PayPal">PayPal</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Account / Number</label>
+                            <input type="text" name="payout_account" placeholder="e.g. 0712345678"
+                                   class="w-full bg-slate-900 text-white text-sm px-3 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500">This is where we'll send your earnings once approved. You can update it later.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Password *</label>
+                        <div class="relative">
+                            <input type="password" id="signup-password" name="password" required minlength="6" placeholder="••••••••"
+                                   class="w-full bg-slate-950 text-white text-sm pl-4 pr-10 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                            <button type="button" onclick="togglePasswordVisibility('signup-password', this)"
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 focus:outline-none"
+                                    title="Show/Hide Password">
+                                <svg class="eye-open w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <svg class="eye-closed w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Confirm *</label>
+                        <div class="relative">
+                            <input type="password" id="signup-confirm-password" name="confirm_password" required minlength="6" placeholder="••••••••"
+                                   class="w-full bg-slate-950 text-white text-sm pl-4 pr-10 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                            <button type="button" onclick="togglePasswordVisibility('signup-confirm-password', this)"
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 focus:outline-none"
+                                    title="Show/Hide Password">
+                                <svg class="eye-open w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <svg class="eye-closed w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full mt-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2">
+                    Create Account & Continue →
+                </button>
+
+            </form>
+
+            <p class="text-center text-xs text-slate-400 mt-6">
+                Already registered? <a href="{{ url_for('login') }}" class="text-indigo-400 font-semibold hover:underline">Log in here</a>
+            </p>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

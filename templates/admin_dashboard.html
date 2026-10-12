@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — TranscribeHub{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+                Admin Dashboard
+                <span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-800">Admin</span>
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">Post videos, track transcription progress, and review submissions.</p>
+        </div>
+        <a href="{{ url_for('post_task') }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/30 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            Post New Video Task
+        </a>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        {% set stat_items = [
+            ('Total Tasks', stats.total, 'text-white'),
+            ('Open', stats.open, 'text-emerald-400'),
+            ('In Progress', stats.claimed, 'text-amber-400'),
+            ('Needs Review', stats.submitted, 'text-sky-400'),
+            ('Completed', stats.completed, 'text-purple-400'),
+            ('Earnings Paid', '$' ~ "%.2f"|format(stats.bounty_paid), 'text-rose-400'),
+        ] %}
+        {% for label, value, color in stat_items %}
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg {% if label == 'Needs Review' and stats.submitted > 0 %}ring-1 ring-sky-800{% endif %}">
+            <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">{{ label }}</span>
+            <span class="text-2xl font-black {{ color }}">{{ value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Settings Row (Paystack API Keys, Cloudflare R2, Password Change) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Paystack Configuration Panel -->
+        <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden" open>
+            <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-white list-none flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M2 4h20v4H2V4zm0 6h20v10H2V10zm2 2v6h16v-6H4zm2 2h6v2H6v-2z"/></svg>
+                    Paystack Payment Gateway Settings
+                </span>
+                <span class="text-xs text-emerald-400 font-bold">Active</span>
+            </summary>
+            <div class="px-6 pb-6 border-t border-slate-800 pt-4">
+                <form method="POST" action="{{ url_for('update_settings') }}" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Paystack Public Key (PK)</label>
+                        <input type="text" name="paystack_public_key" value="{{ paystack_pub }}" placeholder="pk_live_... or pk_test_..."
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Paystack Secret Key (SK)</label>
+                        <input type="password" name="paystack_secret_key" value="{{ paystack_sec }}" placeholder="sk_live_... or sk_test_..."
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Entry Fee Amount</label>
+                            <input type="number" name="entry_fee_amount" value="{{ fee_amt }}"
+                                   class="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Currency</label>
+                            <input type="text" name="entry_fee_currency" value="{{ fee_curr }}"
+                                   class="w-full bg-slate-950 text-white uppercase text-xs px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                        Save Paystack Settings
+                    </button>
+                </form>
+            </div>
+        </details>
+
+        <!-- Cloudflare R2 Storage Settings Panel -->
+        <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden">
+            <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-slate-300 hover:text-white list-none flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                    <span class="text-base">☁️</span>
+                    Cloudflare R2 Video Storage
+                </span>
+                <span class="text-xs text-indigo-400 font-bold">Connected</span>
+            </summary>
+            <div class="px-6 pb-6 border-t border-slate-800 pt-4">
+                <form method="POST" action="{{ url_for('update_settings') }}" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">R2 Public URL</label>
+                        <input type="text" name="r2_public_url" value="{{ r2_pub }}" placeholder="https://pub-xxxx.r2.dev"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">R2 Endpoint URL</label>
+                        <input type="text" name="r2_endpoint_url" value="{{ r2_ep }}" placeholder="https://xxxx.r2.cloudflarestorage.com"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Bucket Name</label>
+                            <input type="text" name="r2_bucket_name" value="{{ r2_bucket }}" placeholder="transcribe-tasks"
+                                   class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Access Key ID</label>
+                            <input type="text" name="r2_access_key_id" value="{{ r2_key }}" placeholder="Access Key ID"
+                                   class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Secret Access Key</label>
+                        <input type="password" name="r2_secret_access_key" value="{{ r2_sec }}" placeholder="Secret Access Key"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">
+                        Save Cloudflare R2 Settings
+                    </button>
+                </form>
+            </div>
+        </details>
+
+        <!-- Change Password Panel -->
+        <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden">
+            <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-slate-300 hover:text-white list-none flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                Change Admin Password
+            </summary>
+            <div class="px-6 pb-6 border-t border-slate-800 pt-4">
+                <form method="POST" action="{{ url_for('change_password') }}" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">New Password</label>
+                        <input type="password" name="new_password" required minlength="8" class="w-full bg-slate-950 text-white text-sm px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Confirm Password</label>
+                        <input type="password" name="confirm_password" required minlength="8" class="w-full bg-slate-950 text-white text-sm px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition">
+                        Update Password
+                    </button>
+                </form>
+            </div>
+        </details>
+    </div>
+
+    <!-- Tasks Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider">All Tasks</h2>
+            <span class="text-xs text-slate-400">{{ tasks|length }} total</span>
+        </div>
+
+        <div class="divide-y divide-slate-800/70">
+            {% for task in tasks %}
+            <div class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-800/30 transition">
+                <div class="flex-1 min-w-0">
+                    <!-- Badges row -->
+                    <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800/50">{{ task.category }}</span>
+                        {% if task.status == 'open' %}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-900">Open</span>
+                        {% elif task.status == 'claimed' %}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-900">In Progress</span>
+                        {% elif task.status == 'submitted' %}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-950 text-sky-300 border border-sky-900 animate-pulse">Needs Review</span>
+                        {% elif task.status == 'completed' %}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-900">✓ Done</span>
+                        {% endif %}
+                        <span class="text-[10px] text-slate-500">⏱ {{ task.duration_est }} · {{ task.difficulty }}</span>
+                    </div>
+
+                    <h3 class="text-sm font-bold text-white truncate">{{ task.title }}</h3>
+
+                    <div class="text-xs text-slate-400 mt-0.5">
+                        {% if task.claimer_nickname %}
+                        Transcriber: <strong class="text-slate-200">{{ task.claimer_nickname }}</strong> ·
+                        {% endif %}
+                        Earnings: <strong class="text-emerald-400">${{ "%.2f"|format(task.reward) }}</strong> ·
+                        Posted {{ task.created_at[:10] }}
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="flex items-center gap-2 shrink-0">
+                    {% if task.status == 'submitted' %}
+                    <a href="{{ url_for('review_task', task_id=task.id) }}"
+                       class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition shadow-md shadow-sky-600/20">
+                        Review →
+                    </a>
+                    {% elif task.status == 'completed' %}
+                    <a href="{{ url_for('review_task', task_id=task.id) }}"
+                       class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold border border-slate-700 transition">
+                        View Transcript
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('task_detail', task_id=task.id) }}"
+                       class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+                        View
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('edit_task', task_id=task.id) }}"
+                       class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition">
+                        Edit
+                    </a>
+                    <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST"
+                          onsubmit="return confirm('Permanently delete this task and its transcription?')">
+                        <button type="submit" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/50 text-rose-400 text-xs font-semibold border border-slate-700 hover:border-rose-800 transition">
+                            Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="py-16 text-center text-slate-500 text-sm">
+                No tasks yet. <a href="{{ url_for('post_task') }}" class="text-indigo-400 hover:underline">Post your first video task.</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Registered Workers & Payments Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <!-- Registered Users -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider">Registered Workers</h2>
+                <span class="text-xs text-slate-400">{{ stats.paid_users }}/{{ stats.total_users }} Activated</span>
+            </div>
+            <div class="divide-y divide-slate-800/70 max-h-72 overflow-y-auto">
+                {% for u in recent_users %}
+                <div class="p-4 flex items-center justify-between text-xs">
+                    <div>
+                        <span class="font-bold text-white block">{{ u.full_name }}</span>
+                        <span class="text-slate-400 font-mono">{{ u.email }} · {{ u.phone or 'No phone' }}</span>
+                        {% if u.payout_details %}
+                        <span class="text-emerald-400/80 font-mono block mt-0.5">💸 {{ u.payout_details }}</span>
+                        {% else %}
+                        <span class="text-slate-600 block mt-0.5">No payout details set</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if u.is_paid %}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                            ✓ Paid (Active)
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800">
+                            Unpaid
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="p-8 text-center text-xs text-slate-500">No registered workers yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Entry Fee Payments -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider">Entry Fee Payments</h2>
+                <span class="text-xs font-bold text-emerald-400">{{ entry_currency }} {{ "{:,.2f}".format(stats.entry_fees_collected) }} Total</span>
+            </div>
+            <div class="divide-y divide-slate-800/70 max-h-72 overflow-y-auto">
+                {% for p in recent_payments %}
+                <div class="p-4 flex items-center justify-between text-xs">
+                    <div>
+                        <span class="font-bold text-white block">{{ p.full_name }}</span>
+                        <span class="text-slate-400 font-mono text-[11px]">{{ p.transaction_ref }} · {{ p.payment_method }}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-black text-emerald-400 block">{{ p.currency }} {{ "{:,.0f}".format(p.amount) }}</span>
+                        <span class="text-[10px] text-slate-500">{{ p.created_at[:10] }}</span>
+                    </div>
+                </div>
+                {% else %}
+                <div class="p-8 text-center text-xs text-slate-500">No entry fee payments yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

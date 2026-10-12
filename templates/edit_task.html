@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Edit Task — TranscribeHub{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+    <div class="mb-8">
+        <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-slate-400 hover:text-indigo-400 transition">← Admin Dashboard</a>
+        <h1 class="text-2xl font-extrabold text-white tracking-tight mt-2">Edit Task</h1>
+        <p class="text-slate-400 text-sm mt-1">Update task details, pricing, or instructions. The video source cannot be changed after posting — delete and re-create the task to change the video.</p>
+    </div>
+
+    <form action="{{ url_for('edit_task', task_id=task.id) }}" method="POST" class="space-y-8">
+
+        <!-- Task Info -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-5">
+            <h2 class="text-sm font-bold text-white border-b border-slate-800 pb-3">Task Info</h2>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Title *</label>
+                <input type="text" name="title" required value="{{ task.title }}"
+                       class="w-full bg-slate-950 text-white text-sm px-4 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Description</label>
+                <textarea name="description" rows="3" class="w-full bg-slate-950 text-white text-sm p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">{{ task.description or '' }}</textarea>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Category</label>
+                    <select name="category" class="w-full bg-slate-950 text-slate-200 text-sm px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                        {% for cat in ['Technology','Podcast','Interview','Education','Product & Demos','Legal & Compliance','Medical','Entertainment','General'] %}
+                        <option {% if task.category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Language / Accent</label>
+                    <input type="text" name="language" value="{{ task.language }}"
+                           class="w-full bg-slate-950 text-white text-sm px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Audio Difficulty</label>
+                    <select name="difficulty" class="w-full bg-slate-950 text-slate-200 text-sm px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                        {% for d in ['Easy','Medium','Hard'] %}
+                        <option {% if task.difficulty == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing & Timeline -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
+            <h2 class="text-sm font-bold text-white border-b border-slate-800 pb-3">Earnings & Timeline</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Earnings (USD) *</label>
+                    <div class="relative">
+                        <span class="absolute left-3.5 top-2.5 text-emerald-400 font-bold">$</span>
+                        <input type="number" step="0.50" min="1" name="reward" value="{{ task.reward }}" required
+                               class="w-full bg-slate-950 text-white font-bold text-sm pl-8 pr-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Est. Duration (MM:SS)</label>
+                    <input type="text" name="duration_est" value="{{ task.duration_est or '05:00' }}"
+                           class="w-full bg-slate-950 text-white text-sm px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Deadline</label>
+                    <input type="date" name="deadline" value="{{ task.deadline or '' }}"
+                           class="w-full bg-slate-950 text-slate-300 text-sm px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Guidelines -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
+            <h2 class="text-sm font-bold text-white border-b border-slate-800 pb-3">Transcription Instructions</h2>
+            <textarea name="guidelines" rows="5"
+                      class="w-full bg-slate-950 text-white text-sm p-4 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 font-mono text-xs">{{ task.guidelines or '' }}</textarea>
+        </div>
+
+        <!-- Current Video Info -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                {% if task.video_type == 'upload' %}🎥{% else %}🌐{% endif %}
+            </div>
+            <div>
+                <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider">Current Video Source (read-only)</span>
+                <span class="block text-sm text-slate-200 font-mono truncate max-w-md">{{ task.video_source }}</span>
+                <span class="text-[11px] text-slate-500">To change the video, delete this task and create a new one.</span>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex items-center justify-end gap-4 pb-12">
+            <a href="{{ url_for('task_detail', task_id=task.id) }}" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold transition">Cancel</a>
+            <button type="submit" class="px-7 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-xl shadow-indigo-600/30 transition">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

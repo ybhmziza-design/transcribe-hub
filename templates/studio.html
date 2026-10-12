@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}Transcription Studio - {{ task.title }}{% endblock %}
+
+{% block head %}
+<style>
+    /* Full height studio experience */
+    main { padding-bottom: 0 !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-4rem)] flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+
+    <!-- Top Studio Header Bar -->
+    <div class="h-14 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-4 shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{{ url_for('task_detail', task_id=task.id) }}" class="text-slate-400 hover:text-white transition text-xs font-semibold shrink-0">
+                ← Exit Studio
+            </a>
+            <span class="text-slate-600">|</span>
+            <div class="min-w-0">
+                <h1 class="text-sm font-bold text-white truncate max-w-xs sm:max-w-md">{{ task.title }}</h1>
+                <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                    <span class="text-emerald-400 font-semibold">${{ "%.2f"|format(task.reward) }} Earnings</span>
+                    <span>•</span>
+                    <span id="save-status" class="text-slate-400">Draft up-to-date</span>
+                    <span>•</span>
+                    <span id="word-count-display" class="hidden sm:inline text-slate-500">0 words</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+            <!-- Keyboard shortcuts pill -->
+            <button type="button" onclick="document.getElementById('shortcuts-modal').classList.remove('hidden')" class="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition">
+                <span class="kbd-badge text-[10px]">?</span>
+                <span>Shortcuts</span>
+            </button>
+
+            <!-- Save Draft Button -->
+            <button id="btn-save-draft" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center gap-1">
+                💾 Save Draft
+            </button>
+
+            <!-- Submit Task Button -->
+            <button id="btn-submit-task" type="button" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5">
+                ✓ Submit for Review
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace (Split View) -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        
+        <!-- Left Panel: Video / Audio Player & Playback Studio (5 Cols) -->
+        <div class="lg:col-span-5 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto custom-scrollbar p-4 space-y-4">
+            
+            <!-- Media Player View -->
+            <div class="rounded-2xl overflow-hidden bg-black aspect-video relative flex items-center justify-center shadow-xl border border-slate-800">
+                {% if 'youtube.com' in task.video_source %}
+                <iframe id="studio-media" src="{{ task.video_source }}" class="w-full h-full border-0" allow="autoplay; encrypted-media"></iframe>
+                {% else %}
+                <video id="studio-media" preload="metadata" class="w-full h-full object-contain">
+                    <source src="{{ task.video_source }}">
+                    Your browser does not support HTML5 media.
+                </video>
+                {% endif %}
+            </div>
+
+            <!-- Custom Playback Controls -->
+            <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-3.5 shadow-lg">
+                
+                <!-- Time & Progress Bar -->
+                <div>
+                    <input id="playback-progress" type="range" min="0" max="100" step="0.1" value="0" class="w-full playback-slider h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                    <div class="flex items-center justify-between text-xs font-mono text-slate-400 mt-1">
+                        <span id="current-time-display" class="text-indigo-400 font-semibold">00:00.0</span>
+                        <span id="total-duration-display">{{ task.duration_est }}</span>
+                    </div>
+                </div>
+
+                <!-- Primary Playback Buttons -->
+                <div class="flex items-center justify-center gap-2">
+                    <button id="btn-back-3s" type="button" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition" title="Rewind 3s (Alt+Left)">
+                        ⏪ 3s
+                    </button>
+                    
+                    <button id="btn-play-pause" type="button" class="px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center gap-2" title="Play/Pause (Esc or Ctrl+Space)">
+                        ▶ Play
+                    </button>
+
+                    <button id="btn-fwd-3s" type="button" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 transition" title="Forward 3s (Alt+Right)">
+                        3s ⏩
+                    </button>
+                </div>
+
+                <!-- Speed, Loop & Voice Tools -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
+                    
+                    <!-- Speed Buttons -->
+                    <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-500 uppercase px-1">Speed:</span>
+                        <button type="button" data-speed="0.75" class="btn-speed px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:bg-slate-800">0.75x</button>
+                        <button type="button" data-speed="1.0" class="btn-speed px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-600 text-white">1x</button>
+                        <button type="button" data-speed="1.25" class="btn-speed px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:bg-slate-800">1.25x</button>
+                        <button type="button" data-speed="1.5" class="btn-speed px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:bg-slate-800">1.5x</button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Loop toggle -->
+                        <button id="btn-loop-segment" type="button" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition" title="Loop current 5 seconds">
+                            🔁 Loop 5s
+                        </button>
+
+                        <!-- Voice Assist -->
+                        <button id="btn-voice-assist" type="button" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 transition flex items-center gap-1" title="Browser Speech-to-Text Draft">
+                            🎙️ Speech Assist
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Smart Auto-Pause Toggle -->
+                <div class="flex items-center justify-between pt-2 text-xs text-slate-400">
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <input id="toggle-autopause" type="checkbox" checked class="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0">
+                        <span>Auto-pause playback while typing</span>
+                    </label>
+                    <span class="text-[10px] text-slate-500">Shortcuts: Esc (Play/Pause)</span>
+                </div>
+
+            </div>
+
+            <!-- Client Guidelines Accordion -->
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4">
+                <details class="group">
+                    <summary class="flex items-center justify-between cursor-pointer font-bold text-xs uppercase tracking-wider text-indigo-400 list-none">
+                        <span class="flex items-center gap-1.5">
+                            <span>📋</span> Client Instructions & Glossary
+                        </span>
+                        <span class="group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="mt-3 pt-3 border-t border-slate-800/80 text-xs text-slate-300 space-y-2 whitespace-pre-line leading-relaxed">
+                        {{ task.guidelines or 'No specific instructions provided.' }}
+                    </div>
+                </details>
+            </div>
+
+        </div>
+
+        <!-- Right Panel: Transcription Workspace (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col bg-slate-950 overflow-hidden">
+            
+            <!-- Editor Tabs (Segment Mode vs Continuous Text Mode) -->
+            <div class="h-12 bg-slate-900/60 border-b border-slate-800 px-6 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-6 h-full text-xs font-semibold">
+                    <button id="tab-segments" type="button" class="h-full border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-1.5 transition">
+                        <span>💬 Subtitle Segments</span>
+                        <span class="px-1.5 py-0.5 rounded bg-indigo-950 text-[10px] text-indigo-300">Timed</span>
+                    </button>
+                    <button id="tab-text" type="button" class="h-full border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+                        <span>📝 Continuous Verbatim</span>
+                    </button>
+                </div>
+
+                <button id="btn-add-segment" type="button" class="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1">
+                    + New Segment (Ctrl+Enter)
+                </button>
+            </div>
+
+            <!-- Tab 1: Segments List Container -->
+            <div id="panel-segments" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 dark-scrollbar">
+                <div id="segments-list" class="space-y-3">
+                    <!-- Segment Cards injected by studio.js -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Continuous Text Mode Container -->
+            <div id="panel-text" class="hidden flex-1 flex flex-col p-4 sm:p-6 space-y-3 overflow-hidden">
+                <!-- Helper stamps -->
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <button id="btn-stamp-time" type="button" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400 font-mono font-semibold border border-slate-700">
+                        + Timestamp [MM:SS] (Ctrl+T)
+                    </button>
+                    <button type="button" data-tag="Speaker 1:" class="btn-stamp-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700">
+                        + Speaker 1
+                    </button>
+                    <button type="button" data-tag="Speaker 2:" class="btn-stamp-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700">
+                        + Speaker 2
+                    </button>
+                    <button type="button" data-tag="[Inaudible]" class="btn-stamp-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold border border-slate-700">
+                        + [Inaudible]
+                    </button>
+                    <button type="button" data-tag="[Laughter]" class="btn-stamp-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 font-semibold border border-slate-700">
+                        + [Laughter]
+                    </button>
+                </div>
+
+                <textarea id="continuous-text" class="flex-1 w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-slate-100 text-sm leading-relaxed focus:outline-none focus:border-indigo-500 font-mono resize-none" placeholder="Type or paste continuous transcription text here... Use [00:00] for timestamps."></textarea>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Modal: Keyboard Shortcuts Cheatsheet -->
+<div id="shortcuts-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span>⚡</span> Keyboard Shortcuts
+            </h3>
+            <button onclick="document.getElementById('shortcuts-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+
+        <div class="mt-4 space-y-3 text-xs">
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60">
+                <span class="text-slate-300">Play / Pause Video</span>
+                <span class="kbd-badge">Esc</span> or <span class="kbd-badge">Ctrl + Space</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60">
+                <span class="text-slate-300">Rewind 3 Seconds</span>
+                <span class="kbd-badge">Alt + ←</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60">
+                <span class="text-slate-300">Forward 3 Seconds</span>
+                <span class="kbd-badge">Alt + →</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60">
+                <span class="text-slate-300">Add Segment at Playhead</span>
+                <span class="kbd-badge">Ctrl + Enter</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60">
+                <span class="text-slate-300">Save Draft</span>
+                <span class="kbd-badge">Ctrl + S</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60">
+                <span class="text-slate-300">Insert Timestamp (Text Mode)</span>
+                <span class="kbd-badge">Ctrl + T</span>
+            </div>
+        </div>
+
+        <button onclick="document.getElementById('shortcuts-modal').classList.add('hidden')" class="w-full mt-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition">
+            Close Cheatsheet
+        </button>
+    </div>
+</div>
+
+<!-- Modal: Submit Transcription Confirmation -->
+<div id="submit-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span>🚀</span> Ready to Submit Transcription?
+            </h3>
+            <button onclick="document.getElementById('submit-modal').classList.add('hidden')" class="text-slate-400 hover:text-white">✕</button>
+        </div>
+
+        <div class="mt-4 space-y-4">
+            <p class="text-xs text-slate-300 leading-relaxed">
+                Your completed transcription will be sent to the client for quality review. Upon approval, your <strong class="text-emerald-400">${{ "%.2f"|format(task.reward) }}</strong> earnings will be released to your balance.
+            </p>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Notes for Client (Optional)</label>
+                <textarea id="transcriber-notes-input" rows="3" placeholder="e.g. Verified technical terms. At 03:12 speaker had heavy ambient noise, tagged as [crosstalk]." class="w-full bg-slate-950 text-white text-xs p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 mt-6">
+            <button onclick="document.getElementById('submit-modal').classList.add('hidden')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                Keep Editing
+            </button>
+            <button onclick="confirmSubmitTranscription({{ task.id }})" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30">
+                Confirm & Submit
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/studio.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Inject initial data from backend
+    const rawSegments = {{ (transcription.content_json if transcription and transcription.content_json else '[]')|safe }};
+    const rawText = {{ (transcription.content_text if transcription and transcription.content_text else '')|tojson|safe }};
+
+    window.studioInstance = new TranscribeStudio({
+        taskId: {{ task.id }},
+        mediaElementId: 'studio-media',
+        initialSegments: rawSegments,
+        initialText: rawText
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — TranscribeHub{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+
+    <!-- Breadcrumb -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <a href="{{ url_for('index') }}" class="text-xs text-slate-400 hover:text-indigo-400 transition">← Back to Marketplace</a>
+
+        <div class="flex items-center gap-3">
+            {% if is_admin %}
+            <div class="flex items-center gap-2">
+                <a href="{{ url_for('edit_task', task_id=task.id) }}" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition">Edit Task</a>
+                <form action="{{ url_for('delete_task', task_id=task.id) }}" method="POST"
+                      onsubmit="return confirm('Delete this task permanently?')">
+                    <button type="submit" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/50 text-rose-400 text-xs font-semibold border border-slate-700 hover:border-rose-800 transition">Delete</button>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if task.status == 'open' %}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1 animate-pulse"></span>Open
+            </span>
+            {% elif task.status == 'claimed' %}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-950 text-amber-400 border border-amber-800">In Progress</span>
+            {% elif task.status == 'submitted' %}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-sky-950 text-sky-400 border border-sky-800">Submitted — Awaiting Review</span>
+            {% elif task.status == 'completed' %}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-950 text-purple-400 border border-purple-800">✓ Approved</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- Left: Video Preview & Info -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Video Player Preview (Available for everyone to watch) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+                <div class="p-4 bg-slate-950/60 border-b border-slate-800 text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span>▶ Media Preview</span>
+                    <span>{{ task.category }} · {{ task.language }}</span>
+                </div>
+                <div class="aspect-video bg-black">
+                    {% if 'youtube.com' in task.video_source %}
+                    <iframe src="{{ task.video_source }}" class="w-full h-full border-0" allowfullscreen></iframe>
+                    {% else %}
+                    <video controls class="w-full h-full object-contain">
+                        <source src="{{ task.video_source }}">
+                        Your browser does not support HTML5 video.
+                    </video>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Details & Guidelines -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-white leading-tight mb-3">{{ task.title }}</h1>
+                    <p class="text-sm text-slate-300 leading-relaxed">{{ task.description or 'No additional description.' }}</p>
+                </div>
+
+                {% if task.guidelines %}
+                <div class="p-5 rounded-xl bg-slate-950/80 border border-slate-800">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2.5 flex items-center gap-2">
+                        <span>📋</span> Transcription Instructions
+                    </h2>
+                    <pre class="text-xs text-slate-300 font-sans whitespace-pre-line leading-relaxed">{{ task.guidelines }}</pre>
+                </div>
+                {% endif %}
+
+                <!-- Activity Timeline -->
+                {% if activities %}
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Activity</h2>
+                    <div class="space-y-3">
+                        {% for act in activities %}
+                        <div class="flex items-start gap-2.5 text-xs">
+                            <div class="w-6 h-6 rounded-full bg-indigo-900/50 border border-indigo-800/60 flex items-center justify-center text-indigo-300 text-[10px] font-bold shrink-0">
+                                {{ act.actor[0]|upper }}
+                            </div>
+                            <div>
+                                <span class="font-bold text-slate-200">{{ act.actor }}</span>
+                                <span class="text-slate-400 ml-1">{{ act.message }}</span>
+                                <span class="block text-[10px] text-slate-500">{{ act.created_at }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right: Earnings Card & Actions -->
+        <div class="space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                <div>
+                    <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">Earnings</span>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <span class="text-3xl font-black text-emerald-400">${{ "%.2f"|format(task.reward) }}</span>
+                        <span class="text-xs text-slate-400">on approval</span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons: Auth & Payment Aware -->
+                <div class="space-y-3 pt-2">
+
+                    {% if task.status == 'open' %}
+
+                        {% if not current_user %}
+                            <!-- State 1: Visitor not logged in -->
+                            <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+                                <span class="text-xs text-slate-300 block">Want to transcribe this video and earn the reward?</span>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <a href="{{ url_for('login', next=request.path) }}" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs border border-slate-700 transition">
+                                        Log In
+                                    </a>
+                                    <a href="{{ url_for('signup', next=request.path) }}" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition">
+                                        Sign Up
+                                    </a>
+                                </div>
+                                <p class="text-[11px] text-slate-500">Free to browse. Activation fee required to start working.</p>
+                            </div>
+
+                        {% elif current_user and not current_user.is_paid %}
+                            <!-- State 2: Logged in, but hasn't paid 2500 entry fee -->
+                            <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-900/60 text-center space-y-3">
+                                <span class="text-xs text-amber-300 font-semibold block">Account Not Activated</span>
+                                <p class="text-[11px] text-slate-300 leading-relaxed">
+                                    To start claiming tasks and working in the studio, please pay the one-time entry fee of <strong>{{ entry_currency }} {{ "{:,}".format(entry_fee) }}</strong>.
+                                </p>
+                                <a href="{{ url_for('pay_entry_fee', next=request.path) }}" class="block w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition">
+                                    Activate Account ({{ entry_currency }} {{ "{:,}".format(entry_fee) }}) →
+                                </a>
+                            </div>
+
+                        {% elif current_user and current_user.is_paid %}
+                            <!-- State 3: Active, paid worker -->
+                            <form action="{{ url_for('claim_task', task_id=task.id) }}" method="POST">
+                                <button type="submit" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+                                    Claim Task & Open Studio →
+                                </button>
+                                <p class="text-[11px] text-slate-400 text-center mt-2">🔒 Locks for 48 hours for you ({{ current_user.full_name }}).</p>
+                            </form>
+
+                        {% elif is_admin %}
+                            <div class="p-3 rounded-xl bg-slate-800/60 text-center text-xs text-slate-400">
+                                Logged in as admin — workers can claim this task.
+                            </div>
+                        {% endif %}
+
+                    {% elif task.status == 'claimed' %}
+
+                        {% if current_user and current_user.id == task.claimed_by %}
+                            <a href="{{ url_for('studio', task_id=task.id) }}" class="block w-full text-center py-3.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-xl shadow-amber-600/30 transition">
+                                ✍ Resume in Studio →
+                            </a>
+                            <form action="{{ url_for('release_task', task_id=task.id) }}" method="POST">
+                                <button type="submit" onclick="return confirm('Release this task?')" class="w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-semibold transition">
+                                    Release Task (Unclaim)
+                                </button>
+                            </form>
+                        {% elif is_admin %}
+                            <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-900/40 text-center text-xs text-amber-300">
+                                Being transcribed by <strong>{{ task.claimer_nickname }}</strong>
+                            </div>
+                            <form action="{{ url_for('release_task', task_id=task.id) }}" method="POST">
+                                <button type="submit" class="w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-semibold transition">
+                                    Admin: Force Release
+                                </button>
+                            </form>
+                        {% else %}
+                            <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-900/40 text-center text-xs text-amber-300">
+                                Currently being transcribed by another worker. Check other available tasks!
+                            </div>
+                        {% endif %}
+
+                    {% elif task.status == 'submitted' %}
+
+                        {% if is_admin %}
+                            <a href="{{ url_for('review_task', task_id=task.id) }}" class="block w-full text-center py-3.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-xl shadow-sky-600/30 transition">
+                                🔍 Review Submission →
+                            </a>
+                        {% else %}
+                            <div class="p-3 rounded-xl bg-sky-950/40 border border-sky-800/40 text-center text-xs text-sky-300">
+                                Submitted and awaiting admin quality review.
+                            </div>
+                        {% endif %}
+
+                    {% elif task.status == 'completed' %}
+
+                        {% if is_admin %}
+                            <a href="{{ url_for('review_task', task_id=task.id) }}" class="block w-full text-center py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition">
+                                View Approved Transcript & Export
+                            </a>
+                        {% else %}
+                            <div class="p-3 rounded-xl bg-purple-950/40 border border-purple-800/40 text-center text-xs text-purple-300">
+                                ✓ Transcription approved and completed.
+                            </div>
+                        {% endif %}
+
+                    {% endif %}
+                </div>
+
+                <!-- Specs -->
+                <div class="pt-4 border-t border-slate-800 space-y-3 text-xs">
+                    <div class="flex items-center justify-between"><span class="text-slate-400">Duration</span><span class="font-bold text-slate-200">⏱ {{ task.duration_est }}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-slate-400">Difficulty</span>
+                        <span class="font-bold {% if task.difficulty=='Easy' %}text-emerald-400{% elif task.difficulty=='Hard' %}text-rose-400{% else %}text-amber-400{% endif %}">{{ task.difficulty }}</span>
+                    </div>
+                    <div class="flex items-center justify-between"><span class="text-slate-400">Language</span><span class="font-bold text-slate-200">{{ task.language }}</span></div>
+                    <div class="flex items-center justify-between"><span class="text-slate-400">Deadline</span><span class="font-bold text-slate-200">{{ task.deadline or 'Flexible' }}</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

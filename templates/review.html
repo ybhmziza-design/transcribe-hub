@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Review Submission — {{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-slate-400 hover:text-indigo-400 transition">← Admin Dashboard</a>
+
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400">Earnings: <strong class="text-emerald-400">${{ "%.2f"|format(task.reward) }}</strong></span>
+            {% if task.status == 'completed' %}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-purple-950 text-purple-300 border border-purple-800">✓ Approved</span>
+            {% elif task.status == 'submitted' %}
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-sky-950 text-sky-400 border border-sky-800 animate-pulse">Needs Your Review</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Title & Export bar -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-xl font-extrabold text-white">{{ task.title }}</h1>
+            <p class="text-xs text-slate-400 mt-1">
+                Submitted by <strong class="text-slate-200">{{ transcription.transcriber_nickname or 'Transcriber' }}</strong>
+                {% if transcription.submitted_at %} on {{ transcription.submitted_at[:16] }}{% endif %}
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] uppercase font-bold text-slate-400 mr-1">Export:</span>
+            <a href="{{ url_for('export_transcription', task_id=task.id, format_type='srt') }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold border border-slate-700">.SRT</a>
+            <a href="{{ url_for('export_transcription', task_id=task.id, format_type='vtt') }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold border border-slate-700">.VTT</a>
+            <a href="{{ url_for('export_transcription', task_id=task.id, format_type='txt') }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700">.TXT</a>
+            <a href="{{ url_for('export_transcription', task_id=task.id, format_type='json') }}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700">.JSON</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Left: Video Player + Actions -->
+        <div class="lg:col-span-5 space-y-6">
+
+            <!-- Sticky video player -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl sticky top-20">
+                <div class="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-300">
+                    <span>Playback Check</span>
+                    <span id="review-time" class="font-mono text-indigo-400">00:00</span>
+                </div>
+                <div class="aspect-video bg-black">
+                    {% if 'youtube.com' in task.video_source %}
+                    <iframe src="{{ task.video_source }}" class="w-full h-full border-0"></iframe>
+                    {% else %}
+                    <video id="review-video" controls class="w-full h-full object-contain">
+                        <source src="{{ task.video_source }}">
+                    </video>
+                    {% endif %}
+                </div>
+                <div class="p-2.5 bg-slate-950/50 border-t border-slate-800 text-[11px] text-slate-400">
+                    💡 Click any timestamp in the transcript to jump to that point.
+                </div>
+            </div>
+
+            <!-- Transcriber notes -->
+            {% if transcription and transcription.transcriber_notes %}
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Transcriber Notes</h3>
+                <p class="text-xs text-slate-300 leading-relaxed">{{ transcription.transcriber_notes }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Review Actions (only when status is submitted) -->
+            {% if task.status == 'submitted' %}
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+                <h3 class="text-sm font-bold text-white">Your Decision</h3>
+
+                <!-- Approve -->
+                <form action="{{ url_for('review_task', task_id=task.id) }}" method="POST" class="space-y-3">
+                    <input type="hidden" name="action" value="approve">
+                    <textarea name="feedback" rows="2" placeholder="Optional praise or notes to the transcriber..."
+                              class="w-full bg-slate-950 text-white text-xs p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500"></textarea>
+                    <button type="submit" onclick="return confirm('Approve and release ${{ task.reward }} earnings?')"
+                            class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition">
+                        ✓ Approve & Mark Earnings Paid (${{ "%.2f"|format(task.reward) }})
+                    </button>
+                </form>
+
+                <!-- Request Revision / Reject row -->
+                <div class="flex gap-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="document.getElementById('revision-form').classList.toggle('hidden')"
+                            class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700 transition">
+                        Request Changes…
+                    </button>
+                    <form action="{{ url_for('review_task', task_id=task.id) }}" method="POST" class="flex-1">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="feedback" value="Quality standards not met.">
+                        <button type="submit" onclick="return confirm('Reject submission? Task will be reopened.')"
+                                class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-rose-900/50 text-rose-400 text-xs font-semibold border border-slate-700 hover:border-rose-800 transition">
+                            Reject
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Revision form (hidden by default) -->
+                <form id="revision-form" action="{{ url_for('review_task', task_id=task.id) }}" method="POST"
+                      class="hidden pt-3 border-t border-slate-800 space-y-2">
+                    <input type="hidden" name="action" value="revision">
+                    <label class="block text-xs font-semibold text-amber-400">Specify Required Changes:</label>
+                    <textarea name="feedback" required rows="3"
+                              placeholder="e.g. Please fix speaker names at 01:20 and review inaudible tag at 03:45."
+                              class="w-full bg-slate-950 text-white text-xs p-3 rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500"></textarea>
+                    <button type="submit" class="w-full py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition">
+                        Send Revision Request
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Previous feedback (if already reviewed) -->
+            {% if transcription and transcription.reviewer_feedback %}
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Your Feedback</h3>
+                <p class="text-xs text-slate-300 leading-relaxed italic">"{{ transcription.reviewer_feedback }}"</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right: Submitted Transcript -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                <h2 class="text-sm font-bold text-white">Transcript ({{ segments|length }} cues)</h2>
+            </div>
+
+            <div class="space-y-3 max-h-[680px] overflow-y-auto dark-scrollbar pr-2">
+                {% for seg in segments %}
+                <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800/80 hover:border-indigo-500/40 transition">
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <button type="button" onclick="seekVideo({{ seg.start }})"
+                                class="px-2 py-0.5 rounded-md bg-indigo-950 hover:bg-indigo-900 text-indigo-300 text-xs font-mono font-bold border border-indigo-800/60 transition">
+                            ▶ {{ "%.1f"|format(seg.start) }}s – {{ "%.1f"|format(seg.end) }}s
+                        </button>
+                        {% if seg.speaker %}
+                        <span class="text-xs font-semibold text-slate-300 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">{{ seg.speaker }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-100 leading-relaxed">{{ seg.text }}</p>
+                </div>
+                {% else %}
+                <!-- Fallback: plain text view -->
+                <pre class="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed font-mono p-2">{{ transcription.content_text if transcription else 'No content.' }}</pre>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const video = document.getElementById('review-video');
+const timeEl = document.getElementById('review-time');
+if (video) {
+    video.addEventListener('timeupdate', () => {
+        const cur = video.currentTime;
+        const m = String(Math.floor(cur / 60)).padStart(2, '0');
+        const s = String(Math.floor(cur % 60)).padStart(2, '0');
+        if (timeEl) timeEl.textContent = `${m}:${s}`;
+    });
+}
+function seekVideo(seconds) {
+    if (video) { video.currentTime = parseFloat(seconds); video.play(); }
+}
+</script>
+{% endblock %}
