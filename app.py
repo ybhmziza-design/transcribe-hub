@@ -15,6 +15,7 @@ from flask import (
 )
 import database
 import exporter
+import ai_reviewer
 
 app = Flask(__name__)
 app.secret_key = 'transcribehub-prod-secret-2024-change-me'
@@ -707,6 +708,16 @@ def update_settings():
     if smtp_pass:
         database.set_setting('smtp_password', smtp_pass)
 
+    ai_enabled = request.form.get('ai_auto_review_enabled')
+    if ai_enabled is not None:
+        database.set_setting('ai_auto_review_enabled', '1' if ai_enabled in ('1', 'on', 'true') else '0')
+    ai_threshold = request.form.get('ai_pass_threshold', '').strip()
+    if ai_threshold:
+        database.set_setting('ai_pass_threshold', ai_threshold)
+    ai_model = request.form.get('ai_whisper_model', '').strip()
+    if ai_model:
+        database.set_setting('ai_whisper_model', ai_model)
+
     flash('Settings updated successfully!', 'success')
     return redirect(url_for('admin_dashboard'))
 
@@ -808,6 +819,10 @@ def admin_dashboard():
     smtp_user = database.get_setting('smtp_user', '')
     smtp_pass = database.get_setting('smtp_password', '')
 
+    ai_enabled   = database.get_setting('ai_auto_review_enabled', '1')
+    ai_threshold = database.get_setting('ai_pass_threshold', '88')
+    ai_model     = database.get_setting('ai_whisper_model', 'tiny')
+
     return render_template('admin_dashboard.html',
                            tasks=tasks,
                            stats=stats,
@@ -825,7 +840,11 @@ def admin_dashboard():
                            smtp_host=smtp_host,
                            smtp_port=smtp_port,
                            smtp_user=smtp_user,
-                           smtp_pass=smtp_pass)
+                           smtp_pass=smtp_pass,
+                           ai_enabled=ai_enabled,
+                           ai_threshold=ai_threshold,
+                           ai_model=ai_model)
+
 
 
 
@@ -1201,6 +1220,10 @@ def submit_transcription(task_id):
     )
     conn.commit()
     conn.close()
+
+    # Trigger asynchronous background AI auto-reviewer
+    ai_reviewer.queue_ai_review(task_id)
+
     return jsonify({'success': True, 'redirect_url': url_for('task_detail', task_id=task_id)})
 
 

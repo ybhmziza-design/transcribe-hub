@@ -177,7 +177,10 @@ def init_db():
         'entry_fee_amount': str(DEFAULT_ENTRY_FEE_AMOUNT),
         'entry_fee_currency': DEFAULT_ENTRY_FEE_CURRENCY,
         'paystack_public_key': os.environ.get('PAYSTACK_PUBLIC_KEY', 'pk_test_sample_key_replace_with_yours'),
-        'paystack_secret_key': os.environ.get('PAYSTACK_SECRET_KEY', 'sk_test_sample_key_replace_with_yours')
+        'paystack_secret_key': os.environ.get('PAYSTACK_SECRET_KEY', 'sk_test_sample_key_replace_with_yours'),
+        'ai_auto_review_enabled': '1',
+        'ai_pass_threshold': '88',
+        'ai_whisper_model': 'tiny'
     }
     for k, v in default_settings.items():
         cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (k, v))

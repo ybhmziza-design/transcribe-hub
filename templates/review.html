@@ -61,7 +61,17 @@
                 </div>
             </div>
 
-            <!-- Transcriber notes -->
+            <!-- AI Evaluation Status / Transcriber notes -->
+            {% if transcription and transcription.reviewer_feedback and 'AI' in transcription.reviewer_feedback %}
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl border-l-4 border-l-indigo-500">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-sm">🤖</span>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">AI Evaluation Report</h3>
+                </div>
+                <p class="text-xs text-slate-200 leading-relaxed font-mono bg-slate-950 p-3 rounded-xl border border-slate-800/80">{{ transcription.reviewer_feedback }}</p>
+            </div>
+            {% endif %}
+
             {% if transcription and transcription.transcriber_notes %}
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Transcriber Notes</h3>
