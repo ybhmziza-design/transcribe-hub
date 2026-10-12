@@ -239,7 +239,119 @@ def logout():
     return redirect(url_for('index'))
 
 
-# ─── Paystack Entry Fee Integration ──────────────────────────────────────────
+# ─── Forgot / Reset Password ──────────────────────────────────────────────────
+
+def _send_reset_email(to_email: str, reset_link: str, username: str) -> tuple[bool, str]:
+    """Send a password reset email using SMTP settings from the database."""
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_host = database.get_setting('smtp_host', '').strip()
+    smtp_port = int(database.get_setting('smtp_port', '587') or '587')
+    smtp_user = database.get_setting('smtp_user', '').strip()
+    smtp_pass = database.get_setting('smtp_password', '').strip()
+    smtp_from = database.get_setting('smtp_from_email', smtp_user).strip()
+
+    if not all([smtp_host, smtp_user, smtp_pass]):
+        return False, "Email is not configured. Ask the admin to set SMTP settings."
+
+    subject = "TranscribeHub — Password Reset Request"
+    html_body = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;background:#0f172a;color:#e2e8f0;border-radius:16px;padding:32px;">
+      <h2 style="color:#818cf8;margin-bottom:8px;">Reset Your Password</h2>
+      <p style="color:#94a3b8;font-size:14px;">Hi <strong style="color:#e2e8f0;">{username}</strong>,</p>
+      <p style="color:#94a3b8;font-size:14px;">We received a request to reset your TranscribeHub password.
+         Click the button below to set a new one. This link expires in <strong>1 hour</strong>.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{reset_link}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:bold;font-size:14px;display:inline-block;">
+          Reset My Password →
+        </a>
+      </div>
+      <p style="color:#64748b;font-size:12px;">If you didn't request this, you can safely ignore this email.<br>
+         Your password will <strong>not</strong> change unless you click the link above.</p>
+      <hr style="border-color:#1e293b;margin:20px 0;">
+      <p style="color:#334155;font-size:11px;text-align:center;">TranscribeHub &mdash; Secure Transcription Platform</p>
+    </div>
+    """
+
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From']    = smtp_from
+    msg['To']      = to_email
+    msg.attach(MIMEText(html_body, 'html'))
+
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+        server.ehlo()
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.sendmail(smtp_from, [to_email], msg.as_string())
+        server.quit()
+        return True, "Email sent."
+    except Exception as e:
+        return False, str(e)
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        if not email:
+            flash('Please enter your email address.', 'error')
+            return render_template('forgot_password.html')
+
+        ok, token = database.create_reset_token(email)
+
+        # Always show the same message to prevent email enumeration
+        if ok and token != '__no_user__':
+            reset_link = url_for('reset_password', token=token, _external=True)
+            # Try to fetch username for the email
+            conn = database.get_db_connection()
+            user_row = conn.execute('SELECT username FROM users WHERE email = ?', (email,)).fetchone()
+            conn.close()
+            uname = user_row['username'] if user_row else 'Transcriber'
+            sent, err = _send_reset_email(email, reset_link, uname)
+            if not sent:
+                # If SMTP is not configured, show the link in flash for dev/testing convenience
+                flash(
+                    f'Email delivery failed ({err}). '
+                    f'Reset link (dev only): <a href="{reset_link}" class="underline text-indigo-400">{reset_link}</a>',
+                    'warning'
+                )
+                return render_template('forgot_password.html')
+
+        flash('If that email is registered, a password reset link has been sent. Check your inbox (and spam folder).', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    user, reset_id = database.verify_reset_token(token)
+    if not user:
+        flash('This password reset link is invalid or has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        new_pass    = request.form.get('password', '')
+        confirm     = request.form.get('confirm_password', '')
+
+        if len(new_pass) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+            return render_template('reset_password.html', token=token, username=user['username'])
+        if new_pass != confirm:
+            flash('Passwords do not match.', 'error')
+            return render_template('reset_password.html', token=token, username=user['username'])
+
+        database.consume_reset_token(reset_id, user['id'], new_pass)
+        flash('Your password has been reset successfully. Please log in with your new password.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token, username=user['username'])
+
+
 
 @app.route('/pay-entry-fee')
 @require_user
@@ -549,7 +661,7 @@ def admin_logout():
 @app.route('/admin/settings', methods=['POST'])
 @require_admin
 def update_settings():
-    """Update Paystack API keys and Entry Fee configuration."""
+    """Update Paystack API keys, Entry Fee, R2 Storage, and SMTP configuration."""
     pub_key   = request.form.get('paystack_public_key', '').strip()
     sec_key   = request.form.get('paystack_secret_key', '').strip()
     fee_amt   = request.form.get('entry_fee_amount', '2500').strip()
@@ -560,6 +672,11 @@ def update_settings():
     r2_bucket = request.form.get('r2_bucket_name', '').strip()
     r2_key    = request.form.get('r2_access_key_id', '').strip()
     r2_sec    = request.form.get('r2_secret_access_key', '').strip()
+
+    smtp_host = request.form.get('smtp_host', '').strip()
+    smtp_port = request.form.get('smtp_port', '').strip()
+    smtp_user = request.form.get('smtp_user', '').strip()
+    smtp_pass = request.form.get('smtp_password', '').strip()
 
     if pub_key:
         database.set_setting('paystack_public_key', pub_key)
@@ -581,7 +698,16 @@ def update_settings():
     if r2_sec:
         database.set_setting('r2_secret_access_key', r2_sec)
 
-    flash('Platform, Paystack & Cloudflare R2 settings updated successfully!', 'success')
+    if smtp_host:
+        database.set_setting('smtp_host', smtp_host)
+    if smtp_port:
+        database.set_setting('smtp_port', smtp_port)
+    if smtp_user:
+        database.set_setting('smtp_user', smtp_user)
+    if smtp_pass:
+        database.set_setting('smtp_password', smtp_pass)
+
+    flash('Settings updated successfully!', 'success')
     return redirect(url_for('admin_dashboard'))
 
 
@@ -598,6 +724,34 @@ def change_password():
         database.change_admin_password(new_pw)
         flash('Password updated successfully.', 'success')
     return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/users/<int:user_id>/toggle-paid', methods=['POST'])
+@require_admin
+def toggle_user_paid(user_id):
+    conn = database.get_db_connection()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        flash('Worker not found.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    new_status = 0 if user['is_paid'] else 1
+    payment_ref = f"BYPASS-ADMIN-{uuid.uuid4().hex[:6].upper()}" if new_status else None
+    paid_at = datetime.now() if new_status else None
+
+    conn.execute('''
+        UPDATE users
+        SET is_paid = ?, paid_at = ?, payment_ref = ?
+        WHERE id = ?
+    ''', (new_status, paid_at, payment_ref, user_id))
+    conn.commit()
+    conn.close()
+
+    status_label = "activated (bypassed entry fee)" if new_status else "deactivated"
+    flash(f"Worker account '{user['full_name']}' has been {status_label}!", 'success')
+    return redirect(url_for('admin_dashboard'))
+
 
 
 @app.route('/admin')
@@ -649,6 +803,11 @@ def admin_dashboard():
     r2_key    = database.get_setting('r2_access_key_id', '')
     r2_sec    = database.get_setting('r2_secret_access_key', '')
 
+    smtp_host = database.get_setting('smtp_host', 'smtp.gmail.com')
+    smtp_port = database.get_setting('smtp_port', '587')
+    smtp_user = database.get_setting('smtp_user', '')
+    smtp_pass = database.get_setting('smtp_password', '')
+
     return render_template('admin_dashboard.html',
                            tasks=tasks,
                            stats=stats,
@@ -662,7 +821,12 @@ def admin_dashboard():
                            r2_ep=r2_ep,
                            r2_bucket=r2_bucket,
                            r2_key=r2_key,
-                           r2_sec=r2_sec)
+                           r2_sec=r2_sec,
+                           smtp_host=smtp_host,
+                           smtp_port=smtp_port,
+                           smtp_user=smtp_user,
+                           smtp_pass=smtp_pass)
+
 
 
 # ─── Public Marketplace (Anyone Can View) ─────────────────────────────────────

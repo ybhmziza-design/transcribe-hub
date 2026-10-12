@@ -148,6 +148,19 @@ def init_db():
     )
     ''')
 
+    # ── Password Reset Tokens ─────────────────────────────────────────────────
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS password_resets (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL,
+        token      TEXT    UNIQUE NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used       INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    ''')
+
     conn.commit()
 
     # Seed admin account if not present
@@ -295,3 +308,80 @@ def record_payment(user_id: int, amount: float, currency: str, transaction_ref: 
     conn.commit()
     conn.close()
     return transaction_ref
+
+
+# ─── Password Reset Helpers ────────────────────────────────────────────────────
+
+def create_reset_token(email: str) -> tuple[bool, str]:
+    """
+    Creates a one-time password reset token for the given email.
+    Returns (True, token) on success, or (False, error_message).
+    Token expires in 1 hour.
+    """
+    conn = get_db_connection()
+    user = conn.execute(
+        'SELECT id FROM users WHERE email = ?', (email.lower().strip(),)
+    ).fetchone()
+    if not user:
+        conn.close()
+        # Return success to avoid leaking whether an email is registered
+        return True, "__no_user__"
+
+    # Expire any old unused tokens for this user
+    conn.execute(
+        'UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0',
+        (user['id'],)
+    )
+
+    token = uuid.uuid4().hex + uuid.uuid4().hex  # 64-char hex token
+    expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn.execute(
+        'INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)',
+        (user['id'], token, expires_at)
+    )
+    conn.commit()
+    conn.close()
+    return True, token
+
+
+def verify_reset_token(token: str):
+    """
+    Validates a reset token. Returns the (user dict, reset_id) if valid and not expired,
+    or (None, None) if invalid / expired / already used.
+    """
+    conn = get_db_connection()
+    row = conn.execute(
+        '''SELECT pr.id AS reset_id, pr.user_id, pr.expires_at, pr.used
+           FROM password_resets pr
+           WHERE pr.token = ?''',
+        (token,)
+    ).fetchone()
+
+    if not row:
+        conn.close()
+        return None, None
+
+    if row['used']:
+        conn.close()
+        return None, None
+
+    # Check expiry
+    expires_at = datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S")
+    if datetime.now() > expires_at:
+        conn.close()
+        return None, None
+
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (row['user_id'],)).fetchone()
+    reset_id = row['reset_id']
+    conn.close()
+    return (dict(user) if user else None), reset_id
+
+
+def consume_reset_token(reset_id: int, user_id: int, new_password: str):
+    """Marks the token as used and updates the user's password."""
+    conn = get_db_connection()
+    conn.execute('UPDATE password_resets SET used = 1 WHERE id = ?', (reset_id,))
+    conn.execute('UPDATE users SET password = ? WHERE id = ?', (_hash(new_password), user_id))
+    conn.commit()
+    conn.close()

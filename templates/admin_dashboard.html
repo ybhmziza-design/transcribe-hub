@@ -37,8 +37,8 @@
         {% endfor %}
     </div>
 
-    <!-- Settings Row (Paystack API Keys, Cloudflare R2, Password Change) -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Settings Row (Paystack API Keys, Cloudflare R2, SMTP Email, Password Change) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         <!-- Paystack Configuration Panel -->
         <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden" open>
             <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-white list-none flex items-center justify-between">
@@ -119,6 +119,48 @@
                     </div>
                     <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">
                         Save Cloudflare R2 Settings
+                    </button>
+                </form>
+            </div>
+        </details>
+
+        <!-- SMTP Email Settings Panel -->
+        <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden">
+            <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-slate-300 hover:text-white list-none flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    SMTP Email (Password Reset)
+                </span>
+                <span class="text-xs text-amber-400 font-bold">For Reset Emails</span>
+            </summary>
+            <div class="px-6 pb-6 border-t border-slate-800 pt-4">
+                <p class="text-xs text-slate-500 mb-3">Configure Gmail SMTP to send password reset emails to workers. Use an App Password (not your Gmail password).</p>
+                <form method="POST" action="{{ url_for('update_settings') }}" class="space-y-3">
+                    <input type="hidden" name="section" value="smtp">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">SMTP Host</label>
+                            <input type="text" name="smtp_host" value="{{ smtp_host }}" placeholder="smtp.gmail.com"
+                                   class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Port</label>
+                            <input type="number" name="smtp_port" value="{{ smtp_port }}" placeholder="587"
+                                   class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Gmail Address (sender)</label>
+                        <input type="email" name="smtp_user" value="{{ smtp_user }}" placeholder="yourapp@gmail.com"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Gmail App Password</label>
+                        <input type="password" name="smtp_password" value="{{ smtp_pass }}" placeholder="xxxx xxxx xxxx xxxx"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <button type="submit" class="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition">
+                        Save SMTP Settings
                     </button>
                 </form>
             </div>
@@ -243,15 +285,26 @@
                         <span class="text-slate-600 block mt-0.5">No payout details set</span>
                         {% endif %}
                     </div>
-                    <div>
+                    <div class="flex items-center gap-2">
                         {% if u.is_paid %}
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
-                            ✓ Paid (Active)
+                            ✓ Active
                         </span>
+                        <form method="POST" action="{{ url_for('toggle_user_paid', user_id=u.id) }}">
+                            <button type="submit" onclick="return confirm('Deactivate this worker account?')"
+                                    class="text-[10px] text-slate-500 hover:text-rose-400 hover:underline">
+                                Deactivate
+                            </button>
+                        </form>
                         {% else %}
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800">
                             Unpaid
                         </span>
+                        <form method="POST" action="{{ url_for('toggle_user_paid', user_id=u.id) }}">
+                            <button type="submit" class="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-sm transition">
+                                ⚡ Bypass & Activate
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
                 </div>
