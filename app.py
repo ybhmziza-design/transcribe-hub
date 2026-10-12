@@ -59,9 +59,13 @@ def require_user(func):
     from functools import wraps
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if not get_current_user():
+        user = get_current_user()
+        if not user:
             flash('Please log in or create an account to continue.', 'info')
             return redirect(url_for('login', next=request.path))
+        if not user.get('terms_agreed'):
+            flash('Please review and agree to the User Agreement to continue.', 'info')
+            return redirect(url_for('user_agreement', next=request.path))
         return func(*args, **kwargs)
     return wrapper
 
@@ -74,6 +78,9 @@ def require_paid_worker(func):
         if not user:
             flash('Please log in or sign up to claim tasks.', 'info')
             return redirect(url_for('login', next=request.path))
+        if not user.get('terms_agreed'):
+            flash('Please review and agree to the User Agreement to continue.', 'info')
+            return redirect(url_for('user_agreement', next=request.path))
         if not user.get('is_paid'):
             amount, curr = database.get_entry_fee()
             flash(f'An entry fee of {curr} {amount:,} via Paystack is required to activate your working account.', 'warning')
@@ -197,12 +204,17 @@ def signup():
             flash('Passwords do not match.', 'error')
             return render_template('signup.html')
 
-        success, msg = database.create_user(username, email, password, full_name, phone, payout_details)
+        agree_terms    = request.form.get('agree_terms')
+        if not agree_terms:
+            flash('You must read and agree to the User Agreement and Terms of Service to create an account.', 'error')
+            return render_template('signup.html')
+
+        success, msg = database.create_user(username, email, password, full_name, phone, payout_details, terms_agreed=1)
         if success:
             user = database.authenticate_user(username, password)
             session['user_id'] = user['id']
             session.permanent = True
-            flash(f'Welcome, {full_name}! Account created. Please activate with Paystack to start working.', 'success')
+            flash(f'Welcome, {full_name}! Account created and User Agreement accepted.', 'success')
             next_url = request.args.get('next') or url_for('pay_entry_fee')
             return redirect(next_url)
         else:
@@ -224,6 +236,9 @@ def login():
         if user:
             session['user_id'] = user['id']
             session.permanent = True
+            if not user.get('terms_agreed'):
+                flash('Please review and agree to the User Agreement and Terms of Service to continue to the platform.', 'info')
+                return redirect(url_for('user_agreement', next=request.args.get('next') or url_for('index')))
             flash(f'Welcome back, {user["full_name"]}!', 'success')
             next_url = request.args.get('next') or url_for('index')
             return redirect(next_url)
@@ -238,6 +253,38 @@ def logout():
     session.pop('user_id', None)
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
+
+
+# ─── User Agreement and Terms of Service ──────────────────────────────────────
+
+@app.route('/user-agreement', methods=['GET', 'POST'])
+@app.route('/terms', methods=['GET', 'POST'])
+def user_agreement():
+    user = get_current_user()
+    next_url = request.args.get('next', '')
+
+    if request.method == 'POST':
+        if not user:
+            flash('Please log in or create an account first.', 'info')
+            return redirect(url_for('login'))
+
+        agree = request.form.get('agree_terms')
+        if not agree:
+            flash('You must check the confirmation checkbox to agree to the terms before continuing.', 'error')
+            return render_template('user_agreement.html', user=user, next_url=next_url)
+
+        database.agree_to_terms(user['id'])
+        flash('Thank you! You have electronically accepted the User Agreement and Terms of Service.', 'success')
+
+        dest = next_url
+        if not dest or dest.startswith('/user-agreement') or dest.startswith('/terms'):
+            if not user.get('is_paid'):
+                dest = url_for('pay_entry_fee')
+            else:
+                dest = url_for('index')
+        return redirect(dest)
+
+    return render_template('user_agreement.html', user=user, next_url=next_url)
 
 
 # ─── Forgot / Reset Password ──────────────────────────────────────────────────

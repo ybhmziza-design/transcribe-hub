@@ -110,6 +110,21 @@
 
 <!-- Flash Messages -->
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+    {% if current_user and not current_user.terms_agreed %}
+    <div class="mb-4 p-4 rounded-2xl bg-amber-950/80 border border-amber-700 text-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">📜</span>
+            <div>
+                <p class="font-bold text-sm text-white">Action Required: User Agreement &amp; Terms of Service</p>
+                <p class="text-xs text-amber-300">You must review and agree to the platform terms before claiming tasks, accessing the studio, or managing payouts.</p>
+            </div>
+        </div>
+        <a href="{{ url_for('user_agreement') }}" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold whitespace-nowrap transition shadow-lg shadow-amber-500/20">
+            Review &amp; Agree →
+        </a>
+    </div>
+    {% endif %}
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}{% for category, message in messages %}
         <div class="flash-alert mb-4 px-4 py-3 rounded-xl flex items-center justify-between text-sm font-medium border shadow-lg
@@ -140,6 +155,7 @@
         <div class="flex items-center gap-5">
             <a href="{{ url_for('index') }}" class="hover:text-indigo-400">Marketplace</a>
             <a href="{{ url_for('guidelines') }}" class="hover:text-indigo-400">Style Guide</a>
+            <a href="{{ url_for('user_agreement') }}" class="hover:text-indigo-400 text-slate-400">User Agreement &amp; Terms</a>
         </div>
     </div>
 </footer>

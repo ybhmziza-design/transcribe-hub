@@ -66,9 +66,21 @@ def init_db():
         payment_ref    TEXT,
         balance        REAL    DEFAULT 0.0,
         rating         REAL    DEFAULT 5.0,
+        terms_agreed   INTEGER DEFAULT 0,
+        terms_agreed_at TIMESTAMP,
         created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+
+    # Migration for existing users table
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN terms_agreed INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN terms_agreed_at TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass
 
     # ── Payments table (records Paystack transactions) ─────────────────────────
     cursor.execute('''
@@ -239,7 +251,7 @@ def change_admin_password(new_password: str):
 
 # ─── User Accounts ─────────────────────────────────────────────────────────────
 
-def create_user(username: str, email: str, password: str, full_name: str, phone: str = "", payout_details: str = "") -> tuple[bool, str]:
+def create_user(username: str, email: str, password: str, full_name: str, phone: str = "", payout_details: str = "", terms_agreed: int = 1) -> tuple[bool, str]:
     conn = get_db_connection()
     try:
         existing = conn.execute(
@@ -250,16 +262,19 @@ def create_user(username: str, email: str, password: str, full_name: str, phone:
             conn.close()
             return False, "Username or Email already registered."
 
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if terms_agreed else None
         conn.execute('''
-            INSERT INTO users (username, email, password, full_name, phone, payout_details)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO users (username, email, password, full_name, phone, payout_details, terms_agreed, terms_agreed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             username.lower().strip(),
             email.lower().strip(),
             _hash(password),
             full_name.strip(),
             phone.strip(),
-            payout_details.strip()
+            payout_details.strip(),
+            1 if terms_agreed else 0,
+            now
         ))
         conn.commit()
         conn.close()
@@ -267,6 +282,14 @@ def create_user(username: str, email: str, password: str, full_name: str, phone:
     except Exception as e:
         conn.close()
         return False, str(e)
+
+
+def agree_to_terms(user_id: int):
+    conn = get_db_connection()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute('UPDATE users SET terms_agreed = 1, terms_agreed_at = ? WHERE id = ?', (now, user_id))
+    conn.commit()
+    conn.close()
 
 
 def authenticate_user(username_or_email: str, password: str):

@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block title %}User Agreement and Terms of Service — Transcribers Hub{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-10 mb-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div>
+                <div class="flex items-center gap-2.5 mb-3">
+                    <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-700/50">
+                        Official Legal Policy
+                    </span>
+                    <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        Version 1.0
+                    </span>
+                    {% if user and user.terms_agreed %}
+                    <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Accepted by You
+                    </span>
+                    {% endif %}
+                </div>
+                <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                    User Agreement and Terms of Service
+                </h1>
+                <p class="text-slate-400 text-xs sm:text-sm mt-2 max-w-2xl leading-relaxed">
+                    This Agreement governs all access, task assignments, submissions, quality standards, confidentiality, and earnings on the Transcribers Hub platform.
+                </p>
+            </div>
+
+            <!-- Metadata card -->
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 min-w-[240px]">
+                <div class="flex justify-between text-slate-400">
+                    <span>Platform Name:</span>
+                    <strong class="text-white">Transcribers Hub</strong>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                    <span>Effective Date:</span>
+                    <strong class="text-slate-200">October 12, 2026</strong>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                    <span>Last Updated:</span>
+                    <strong class="text-slate-200">October 12, 2026</strong>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                    <span>Contact Email:</span>
+                    <a href="mailto:aalphawebsites@gmail.com" class="text-indigo-400 hover:underline">aalphawebsites@gmail.com</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Required Acceptance Action Banner (if logged in and pending) -->
+    {% if user and not user.terms_agreed %}
+    <div class="bg-amber-950/80 border-2 border-amber-600 rounded-3xl p-6 sm:p-8 mb-8 shadow-2xl animate-pulse ring-4 ring-amber-500/10">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-4">
+                <span class="text-3xl">⚠️</span>
+                <div>
+                    <h3 class="text-lg font-black text-white">Your Acceptance is Required</h3>
+                    <p class="text-xs text-amber-200 mt-1 max-w-xl">
+                        To continue using Transcribers Hub (claim transcription tasks, access the studio, or request withdrawals), you must read and agree to the terms below.
+                    </p>
+                </div>
+            </div>
+            <a href="#acceptance-form" class="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/30 transition text-center whitespace-nowrap">
+                Jump to Acceptance Form ↓
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Legal Document Body -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-12 shadow-xl space-y-10 text-slate-300 text-sm leading-relaxed">
+
+        <!-- 1. Introduction -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">1.</span> Introduction
+            </h2>
+            <p>Welcome to Transcribers Hub (hereinafter referred to as the “Platform,” “App,” “Company,” “we,” “our,” or “us”). Transcribers Hub is an online platform designed to connect individuals who wish to earn money by transcribing video and audio content with transcribers hub.</p>
+            <p>The Platform enables registered users, including transcription workers, to access available transcription tasks, review task instructions, submit completed transcripts, receive feedback, and earn for approved work, subject to the terms and conditions contained in this Agreement.</p>
+            <p>This User Agreement (“Agreement”) establishes the legal terms governing access to and use of the Platform. It outlines the rights, responsibilities, obligations, and limitations applicable to all individuals who access, register for, or use our services.</p>
+            <p>By creating an account, accessing the Platform, accepting a transcription assignment, submitting work, or otherwise using any of our services, you acknowledge that you have read, understood, and agreed to comply with this Agreement.</p>
+            <p class="font-semibold text-rose-300 bg-rose-950/40 p-3 rounded-xl border border-rose-900/60">If you do not agree to these terms, you must not create an account, accept assignments, or use the Platform.</p>
+            <p>This Agreement applies to transcription workers.</p>
+        </section>
+
+        <!-- 2. Definitions -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">2.</span> Definitions
+            </h2>
+            <p>For purposes of this Agreement, the following definitions apply:</p>
+            <ul class="list-disc pl-5 space-y-2 text-xs sm:text-sm text-slate-300">
+                <li><strong>2.1. “Platform”</strong> means the Transcribers Hub website, mobile application, software, online portal, communication channels, and any related services operated by the Company.</li>
+                <li><strong>2.2. “Company”</strong> means the individual, business, partnership, or legal entity that owns, operates, or manages the Platform.</li>
+                <li><strong>2.3. “User”</strong> means any person or entity that registers for, accesses, or uses the Platform.</li>
+                <li><strong>2.4. “Worker” or “Transcription Worker”</strong> means an individual who undertakes transcription assignments through the Platform.</li>
+                <li><strong>2.5. “Client”</strong> means a person, business, organization, or other party that submits video or audio content for transcription or purchases transcription services through the Platform.</li>
+                <li><strong>2.6. “Transcription Task”</strong> means an assignment requiring a Worker to convert spoken words in a video, audio recording, interview, meeting, lecture, presentation, podcast, or other approved media into written text.</li>
+                <li><strong>2.7. “Source Content”</strong> means the video, audio, reference material, instructions, captions, and other materials provided for the purpose of completing a transcription task.</li>
+                <li><strong>2.8. “Transcript”</strong> means the written output produced by a Worker from the Source Content.</li>
+                <li><strong>2.9. “Submission”</strong> means a transcript or other required deliverable uploaded, entered, or transmitted to the Platform by a Worker.</li>
+                <li><strong>2.10. “Approved Work”</strong> means a Submission that has satisfied the applicable task requirements and has been accepted or approved under the Platform's review procedures.</li>
+                <li><strong>2.11. “Earnings”</strong> means compensation payable to a Worker for Approved Work, subject to applicable fees, lawful deductions, taxes, payment conditions, and this Agreement.</li>
+                <li><strong>2.12. “Account”</strong> means the registered profile through which a User accesses the Platform.</li>
+                <li><strong>2.13. “Confidential Information”</strong> means non-public information accessed through the Platform, including client recordings, personal information, business information, task instructions, account details, and unpublished transcripts.</li>
+                <li><strong>2.14. “Intellectual Property Rights”</strong> means copyright, trademarks, database rights, trade secrets, and other intellectual property rights recognized under applicable law.</li>
+            </ul>
+        </section>
+
+        <!-- 3. Eligibility and Registration -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">3.</span> Eligibility and Registration
+            </h2>
+            <p><strong>3.1.</strong> To use the Platform, you must be legally capable of entering into a binding agreement under the laws applicable to you.</p>
+            <p><strong>3.2.</strong> You must provide accurate and complete information during registration, including your name, email address, contact details, and any other information reasonably required to operate your account.</p>
+            <p><strong>3.3.</strong> Where the Platform requires identity verification, payment verification, age verification, or other compliance checks, you agree to provide truthful information and reasonable supporting documentation.</p>
+            <p><strong>3.4.</strong> You must meet the minimum age requirements established by the Platform and applicable law. Where necessary, the Company may restrict registration to persons who are at least eighteen (18) years old.</p>
+            <p><strong>3.5.</strong> You are responsible for ensuring that your use of the Platform is lawful in your country or jurisdiction.</p>
+            <p><strong>3.6.</strong> You must not register using another person's identity, false information, stolen credentials, or documents that have been altered or falsified.</p>
+            <p><strong>3.7.</strong> The Company reserves the right to reject an application, request additional verification, or restrict access where reasonably necessary to protect users, comply with the law, or maintain Platform security.</p>
+            <p><strong>3.8.</strong> Registration does not guarantee that you will receive transcription assignments, obtain employment, earn a particular amount of money, or qualify for every task.</p>
+            <p><strong>3.10.</strong> Any information collected during registration will be handled in accordance with this Agreement and the applicable Privacy Policy.</p>
+        </section>
+
+        <!-- 4. Account Security and Responsibilities -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">4.</span> Account Security and Responsibilities
+            </h2>
+            <p><strong>4.1.</strong> Each User is responsible for maintaining the confidentiality and security of their login credentials.</p>
+            <p><strong>4.2.</strong> You must not share your password, verification codes, authentication tokens, or other security credentials with unauthorized persons.</p>
+            <p><strong>4.3.</strong> You must promptly notify the Company if you suspect unauthorized access to your account, loss of credentials, fraudulent activity, or a security breach.</p>
+            <p><strong>4.4.</strong> You are responsible for activity conducted through your account to the extent permitted by applicable law, taking into account unauthorized access and circumstances outside your reasonable control.</p>
+            <p><strong>4.5.</strong> Unless expressly authorized by the Company, you must not allow another person to use your account, complete assignments on your behalf, or access confidential task materials through your credentials.</p>
+            <div class="p-3.5 rounded-xl bg-amber-950/40 border border-amber-800 text-amber-200 text-xs">
+                <strong>4.6.</strong> By any chance you lose your login credentials we will not be able to help you if you do not have your email and phone number and they should be the same as the one used to register.
+            </div>
+            <p><strong>4.7.</strong> You must not attempt to bypass security measures, exploit vulnerabilities, access restricted areas, or interfere with the proper operation of the Platform.</p>
+            <p><strong>4.8.</strong> The Company shall not be responsible for losses resulting from a User's failure to take reasonable steps to protect their account, except where liability cannot lawfully be excluded.</p>
+        </section>
+
+        <!-- 5. Description of Services -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">5.</span> Description of Services
+            </h2>
+            <p><strong>5.1.</strong> The Platform provides digital tools and services for facilitating video and audio transcription work.</p>
+            <p><strong>5.2.</strong> Depending on the features available, the Platform may provide worker registration and profile management, task allocation, video/audio streaming, guidelines, submission tools, review processes, and earnings calculation.</p>
+            <p><strong>5.3.</strong> The Company may improve, modify, discontinue, or introduce features as reasonably necessary to maintain and develop the Platform, subject to applicable law.</p>
+            <p><strong>5.4.</strong> The Platform may be unavailable temporarily due to maintenance, technical difficulties, security incidents, or circumstances beyond reasonable control.</p>
+            <p><strong>5.5.</strong> The Company does not guarantee uninterrupted availability, error-free operation, a continuous supply of tasks, or a particular level of income.</p>
+            <p><strong>5.6.</strong> Unless expressly stated otherwise, the Platform acts as an intermediary for facilitating transcription work and related services.</p>
+        </section>
+
+        <!-- 6. Worker Status and Engagement -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">6.</span> Worker Status and Engagement
+            </h2>
+            <p><strong>6.1.</strong> Workers may access transcription assignments according to their qualifications, availability, performance, and platform procedures.</p>
+            <p><strong>6.2.</strong> Participation does not automatically create an employment relationship, partnership, joint venture, or agency between Worker and Company or Client.</p>
+            <p><strong>6.5.</strong> Where Workers are engaged as independent contractors, this Agreement governs the contractual services arrangement.</p>
+            <p><strong>6.6.</strong> Workers must not represent themselves as employees or authorized agents of a Client or Company.</p>
+            <p><strong>6.7.</strong> Workers are responsible for reviewing task instructions and deadlines before accepting assignments.</p>
+            <p><strong>6.9.</strong> Nothing in this Agreement guarantees any Worker a minimum number of assignments, fixed working hours, or guaranteed income.</p>
+        </section>
+
+        <!-- 7. Task Acceptance and Allocation -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">7.</span> Task Acceptance and Allocation
+            </h2>
+            <p><strong>7.1.</strong> The Platform may make tasks available through an open marketplace or assignment allocation system.</p>
+            <p><strong>7.2.</strong> Each task specifies the media recording, required format, language, accuracy requirement, timestamps, deadline, and reward rate.</p>
+            <p><strong>7.4.</strong> Accepting the task constitutes acceptance of the disclosed task requirements and conditions.</p>
+            <p><strong>7.8.</strong> Workers must not claim assignments they have no reasonable intention or ability to complete within the allotted time.</p>
+            <p><strong>7.9.</strong> If a recording is corrupted or inaccessible, the Worker must report it promptly.</p>
+        </section>
+
+        <!-- 8. Transcription Standards and Quality Requirements -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">8.</span> Transcription Standards and Quality Requirements
+            </h2>
+            <p><strong>8.1.</strong> Workers agree to produce accurate, complete, and professionally prepared transcripts that reasonably reflect the Source Content.</p>
+            <p><strong>8.2.</strong> A transcript must not intentionally distort the meaning, omit material statements, or invent words not in the recording.</p>
+            <p><strong>8.4.</strong> Workers must listen carefully, preserve original meaning, use correct grammar/spelling, identify speakers consistently, and format timestamps accurately.</p>
+            <p><strong>8.7.</strong> Workers must not submit blank files, incomplete drafts represented as complete, plagiarized transcripts, or unreviewed automated text.</p>
+            <p><strong>8.11.</strong> The Company may use automated quality checks, AI evaluation, human reviewers, client feedback, or a combination of methods to assess submissions.</p>
+        </section>
+
+        <!-- 9. Use of Artificial Intelligence and Automated Tools -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">9.</span> Use of Artificial Intelligence and Automated Tools
+            </h2>
+            <p><strong>9.1.</strong> The use of speech recognition, generative AI, automated transcription bots, or third-party tools is permitted only where task instructions and Platform policies explicitly allow it.</p>
+            <p><strong>9.2.</strong> Workers must not upload confidential Source Content into unapproved third-party tools.</p>
+            <p><strong>9.4.</strong> Workers must not falsely represent machine-generated output as independently transcribed or verified work.</p>
+            <p><strong>9.6.</strong> Automated systems and AI models are employed by the Platform for quality evaluation, accuracy scoring, and anti-cheat telemetry detection.</p>
+        </section>
+
+        <!-- 10. Submission of Completed Work -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">10.</span> Submission of Completed Work
+            </h2>
+            <p><strong>10.1.</strong> Workers must submit assignments through the approved Platform Studio tools.</p>
+            <p><strong>10.3.</strong> Workers are responsible for confirming that their transcript is complete, readable, and properly synchronized.</p>
+            <p><strong>10.10.</strong> Repeated failure to meet agreed deadlines without reasonable cause may result in task forfeiture or account review.</p>
+        </section>
+
+        <!-- 11. Review, Approval, and Revisions -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">11.</span> Review, Approval, and Revisions
+            </h2>
+            <p><strong>11.1.</strong> Submissions are evaluated for accuracy, timing, compliance with instructions, and originality.</p>
+            <p><strong>11.2.</strong> Submissions may be approved, returned for revision, or rejected in accordance with platform quality thresholds.</p>
+            <p><strong>11.4.</strong> Workers may be granted an opportunity to correct errors that fall within the original task scope.</p>
+        </section>
+
+        <!-- 12. Compensation and Earnings -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">12.</span> Compensation and Earnings
+            </h2>
+            <p><strong>12.1.</strong> Workers are eligible to receive compensation for assignments according to the rates disclosed on the task offer.</p>
+            <p><strong>12.5.</strong> Displayed balances reflect pending or approved earnings subject to quality review and completion.</p>
+            <p><strong>12.7.</strong> The Company will not arbitrarily alter an agreed task reward retroactively for work performed in full compliance.</p>
+            <p><strong>12.10.</strong> No Worker is guaranteed a specific level of monthly earnings or task volume.</p>
+        </section>
+
+        <!-- 13. Payment Methods and Withdrawals -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">13.</span> Payment Methods and Withdrawals
+            </h2>
+            <p><strong>13.1.</strong> Approved withdrawal channels include Safaricom M-Pesa, Airtel Money, and PayPal.</p>
+            <p><strong>13.4.</strong> Workers must provide accurate payout details and ensure their account can legally receive funds.</p>
+            <p><strong>13.6.</strong> Workers must not submit another person's payment details without proper legal authorization.</p>
+            <p><strong>13.11.</strong> Workers are solely responsible for any applicable local taxes on their earnings.</p>
+        </section>
+
+        <!-- 14 to 20: Conduct, Confidentiality & Rights -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">14–20.</span> Conduct, Confidentiality, and Intellectual Property
+            </h2>
+            <p><strong>15. Conduct:</strong> Workers must act honestly, professionally, and respectfully. Harassment, bribery, plagiarism, and fraud are strictly prohibited.</p>
+            <p><strong>16. Confidentiality:</strong> All audio, video, transcripts, and client data are strictly confidential. Workers must not download, share, stream, publish, or disclose any task materials outside the platform.</p>
+            <p><strong>17. Privacy:</strong> Personal data is processed in accordance with our Privacy Policy. Inquiries can be submitted to <strong>aalphawebsites@gmail.com</strong>.</p>
+            <p><strong>18. Ownership:</strong> Source content belongs to rights holders. Completed and compensated transcripts become the property of the platform or designated client.</p>
+            <p><strong>19. Prohibited Acts:</strong> Fraudulent accounts, bulk pasting bot output, manipulating platform metrics, or attempting security breaches will result in immediate termination.</p>
+        </section>
+
+        <!-- 21 to 30: Third Party, Termination & Governance -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">21–30.</span> Suspension, Disclaimers, and Governing Law
+            </h2>
+            <p><strong>23. Suspension &amp; Appeals:</strong> Accounts may be suspended for material breaches, fraud, or serious quality failures. Inquiries or appeals may be directed to <strong>aalphawebsites@gmail.com</strong>.</p>
+            <p><strong>25. Disclaimer:</strong> The platform is provided on an “as available” basis without guarantees of continuous task availability or earnings volume.</p>
+            <p><strong>29. Governing Law:</strong> This Agreement shall be governed by and construed in accordance with applicable laws.</p>
+            <p><strong>30. Changes:</strong> Material updates will be communicated on the platform. Continued use constitutes acceptance of revised terms.</p>
+        </section>
+
+        <!-- 31 to 39: General Provisions -->
+        <section class="space-y-3">
+            <h2 class="text-lg sm:text-xl font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                <span class="text-indigo-400">31–39.</span> Communications &amp; Transcription Specifics
+            </h2>
+            <p><strong>31. Contact:</strong> Official notices and support inquiries should be addressed to <strong>aalphawebsites@gmail.com</strong>.</p>
+            <p><strong>38. Transcription Nature:</strong> Transcripts are written representations of spoken recordings and do not independently certify the truth, completeness, or admissibility of spoken statements.</p>
+            <p><strong>39. Ethical Standards:</strong> The platform promotes fair treatment, transparent task rates, and timely compensation.</p>
+        </section>
+
+        <!-- 40. Final Acknowledgment -->
+        <section class="space-y-3 p-5 rounded-2xl bg-indigo-950/30 border border-indigo-900/60">
+            <h2 class="text-lg font-bold text-indigo-300">
+                40. Final Acknowledgment
+            </h2>
+            <p class="text-xs sm:text-sm">By registering for, accessing, or using Transcribers Hub, you acknowledge that:</p>
+            <ul class="list-disc pl-5 space-y-1 text-xs text-slate-300">
+                <li>You have read and understood this User Agreement;</li>
+                <li>You agree to comply with the applicable terms and conditions;</li>
+                <li>You will provide truthful information and use the Platform lawfully;</li>
+                <li>You will complete transcription assignments honestly and according to instructions;</li>
+                <li>You will protect confidential information and respect the privacy of others;</li>
+                <li>You understand that compensation depends on approved task terms and quality compliance;</li>
+                <li>You understand that task availability and earnings are not guaranteed.</li>
+            </ul>
+        </section>
+
+    </div>
+
+    <!-- Company Details & Electronic Acceptance Form -->
+    <div id="acceptance-form" class="mt-8 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8">
+
+        <div>
+            <h3 class="text-xl font-black text-white flex items-center gap-2.5">
+                <span>📋</span> Company Details &amp; User Acceptance Record
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Formal electronic signature and acceptance record pursuant to Section 37.</p>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-950 border border-slate-800/80 text-xs">
+            <div>
+                <span class="text-slate-500 block uppercase font-bold text-[10px]">Platform Name</span>
+                <span class="text-white font-semibold">Transcribers Hub</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block uppercase font-bold text-[10px]">Official Support</span>
+                <span class="text-slate-200 font-semibold">aalphawebsites@gmail.com</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block uppercase font-bold text-[10px]">Agreement Version</span>
+                <span class="text-indigo-400 font-semibold">Version 1.0</span>
+            </div>
+            <div>
+                <span class="text-slate-500 block uppercase font-bold text-[10px]">Effective Date</span>
+                <span class="text-slate-200 font-semibold">October 12, 2026</span>
+            </div>
+        </div>
+
+        {% if user %}
+            {% if user.terms_agreed %}
+                <!-- Already Accepted Card -->
+                <div class="p-6 rounded-2xl bg-emerald-950/60 border border-emerald-800 text-emerald-200 space-y-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl">✓</span>
+                        <h4 class="text-sm font-bold text-white">Electronic Acceptance Confirmed &amp; Active</h4>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-2 border-t border-emerald-900/60 text-slate-300">
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Transcriber</span>
+                            <span class="font-semibold text-white">{{ user.full_name }} (@{{ user.username }})</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Registered Email</span>
+                            <span class="font-semibold text-white">{{ user.email }}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold">Date Accepted</span>
+                            <span class="font-semibold text-emerald-400">{{ user.terms_agreed_at or 'On registration' }}</span>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-emerald-300/80 pt-1">
+                        You have satisfied all agreement requirements. You may continue to work on tasks, access your wallet, and use the transcription studio.
+                    </p>
+                    <div class="pt-2">
+                        <a href="{{ url_for('index') }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                            Continue to Marketplace →
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Pending Acceptance Submission Form -->
+                <form method="POST" action="{{ url_for('user_agreement', next=next_url) }}" class="space-y-6">
+                    <div class="p-6 rounded-2xl bg-slate-950 border border-indigo-900/50 space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pb-4 border-b border-slate-800">
+                            <div>
+                                <span class="text-slate-500 block uppercase font-bold text-[10px]">Your Full Name</span>
+                                <span class="font-bold text-white text-sm">{{ user.full_name }}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block uppercase font-bold text-[10px]">Registered Email</span>
+                                <span class="font-bold text-indigo-400 text-sm">{{ user.email }}</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block uppercase font-bold text-[10px]">Account ID</span>
+                                <span class="font-mono text-slate-300 text-sm">#{{ user.id }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Acceptance Checkbox -->
+                        <div class="pt-2">
+                            <label class="flex items-start gap-3 cursor-pointer p-4 rounded-xl bg-indigo-950/30 border border-indigo-800/60 hover:bg-indigo-950/50 transition">
+                                <input type="checkbox" name="agree_terms" value="1" required
+                                       class="mt-1 rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 w-5 h-5">
+                                <span class="text-xs sm:text-sm text-slate-100 font-medium leading-relaxed">
+                                    “I confirm that I have read and understood the User Agreement and agree to the applicable terms governing my use of the Transcribers Hub platform.”
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-sm sm:text-base shadow-xl shadow-indigo-600/30 transition flex items-center justify-center gap-2">
+                        <span>I Agree &amp; Continue to Platform →</span>
+                    </button>
+                </form>
+            {% endif %}
+        {% else %}
+            <!-- Unauthenticated Visitor View -->
+            <div class="p-6 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h4 class="text-sm font-bold text-white">Ready to join Transcribers Hub?</h4>
+                    <p class="text-xs text-slate-400 mt-0.5">Create your worker account and agree to the terms to begin transcribing.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="{{ url_for('signup') }}" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">
+                        Sign Up Now →
+                    </a>
+                    <a href="{{ url_for('login') }}" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition">
+                        Log In
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+
+    </div>
+
+</div>
+{% endblock %}
