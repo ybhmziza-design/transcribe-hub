@@ -2,7 +2,7 @@
 TranscribeHub - Flask Application
 - Admin-only task posting and review.
 - Public visitors can browse the site and preview tasks freely.
-- Workers/transcribers must Sign Up / Log In and pay an entry fee of KES 2,500 via Paystack
+- Workers/transcribers must Sign Up / Log In and pay an entry fee of KES 573 via Paystack
   (supports M-Pesa, Card, Bank) to activate their account and start working.
 """
 import os, json, re, uuid
@@ -712,7 +712,7 @@ def update_settings():
     """Update Paystack API keys, Entry Fee, R2 Storage, and SMTP configuration."""
     pub_key   = request.form.get('paystack_public_key', '').strip()
     sec_key   = request.form.get('paystack_secret_key', '').strip()
-    fee_amt   = request.form.get('entry_fee_amount', '2500').strip()
+    fee_amt   = request.form.get('entry_fee_amount', '573').strip()
     fee_curr  = request.form.get('entry_fee_currency', 'KES').strip().upper()
 
     r2_pub    = request.form.get('r2_public_url', '').strip()

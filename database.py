@@ -13,7 +13,7 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'transcribe.d
 # ─── Default Credentials & Defaults ──────────────────────────────────────────
 DEFAULT_ADMIN_USERNAME = "tanuialpha2@gmail.com"
 DEFAULT_ADMIN_PASSWORD = "1234"
-DEFAULT_ENTRY_FEE_AMOUNT = 2500
+DEFAULT_ENTRY_FEE_AMOUNT = 573
 DEFAULT_ENTRY_FEE_CURRENCY = "KES"
 # ──────────────────────────────────────────────────────────────────────────────
 
