@@ -474,6 +474,51 @@ def wallet():
                            total_pending=total_pending)
 
 
+@app.route('/wallet/update-payout', methods=['POST'])
+@require_user
+def update_payout():
+    user = get_current_user()
+    method = request.form.get('payout_method', '').strip()
+    account = request.form.get('payout_account', '').strip()
+
+    if not method or not account:
+        flash('Please select a payment method and provide your payout account.', 'error')
+        return redirect(url_for('wallet'))
+
+    payout_details = f"{method}: {account}"
+    conn = database.get_db_connection()
+    conn.execute('UPDATE users SET payout_details = ? WHERE id = ?', (payout_details, user['id']))
+    conn.commit()
+    conn.close()
+
+    flash(f'Payout destination updated to {payout_details}!', 'success')
+    return redirect(url_for('wallet'))
+
+
+@app.route('/wallet/withdraw', methods=['POST'])
+@require_user
+def withdraw():
+    user = get_current_user()
+    conn = database.get_db_connection()
+    fresh_user = conn.execute('SELECT * FROM users WHERE id = ?', (user['id'],)).fetchone()
+    balance = fresh_user['balance'] if fresh_user else 0.0
+    payout_details = fresh_user['payout_details'] if fresh_user else ''
+
+    if not payout_details:
+        conn.close()
+        flash('Please set your payout destination before requesting a withdrawal.', 'warning')
+        return redirect(url_for('wallet'))
+
+    if balance <= 0:
+        conn.close()
+        flash('Your available balance is $0.00. You need approved earnings to request a payout.', 'error')
+        return redirect(url_for('wallet'))
+
+    conn.close()
+    flash(f'Withdrawal request for ${balance:.2f} to {payout_details} received! Payouts are processed by admin within 24 hours.', 'success')
+    return redirect(url_for('wallet'))
+
+
 # ─── Admin Auth & Dashboard ───────────────────────────────────────────────────
 
 @app.route('/admin/login', methods=['GET', 'POST'])
