@@ -57,6 +57,60 @@ def compute_accuracy(submitted_text: str, reference_text: str) -> float:
     return round(similarity * 100.0, 1)
 
 
+def detect_ai_generation(submitted_text: str, telemetry: dict = None, task_claimed_at: str = None, duration_est: str = None) -> tuple[bool, str]:
+    """
+    Inspects text and user studio telemetry for AI generation signatures.
+    Returns (is_ai_suspected: bool, reason_details: str).
+    """
+    flags = []
+
+    # 1. Check for AI Hallucinations / Chatbot Artifacts
+    ai_signature_patterns = [
+        r'\b(?:here is (?:the|your) transcription|as an ai language model|transcription below:)\b',
+        r'\b(?:thank you for watching|thanks for watching|subscribe to my channel|like and subscribe)\b',
+        r'\b(?:subtitles by|translated by|captioned by|community subtitling)\b',
+        r'(\b[\w\s]{4,20}\b)(?:\s+\1){3,}' # Repetitive phrase loops common in AI hallucinations
+    ]
+    lower_text = submitted_text.lower()
+    for pat in ai_signature_patterns:
+        if re.search(pat, lower_text):
+            flags.append("Contains known AI speech-to-text watermark or hallucination phrase")
+            break
+
+    # 2. Check Telemetry (Bulk paste vs human typing)
+    if telemetry:
+        pasted_chars = telemetry.get('pasted_chars', 0)
+        keystrokes   = telemetry.get('keystrokes', 0)
+        elapsed_secs = telemetry.get('elapsed_seconds', 0)
+        text_len     = len(submitted_text.strip())
+
+        # If user pasted over 80% of text with almost zero keyboard typing
+        if text_len > 120 and pasted_chars >= (text_len * 0.8) and keystrokes < (text_len * 0.2):
+            flags.append(f"Bulk clipboard paste detected ({pasted_chars} pasted chars vs only {keystrokes} keystrokes typed)")
+
+        # Unrealistic typing speed: e.g. 300 words submitted in less than 30 seconds
+        word_count = len(submitted_text.split())
+        if elapsed_secs > 0 and word_count > 60:
+            words_per_minute = (word_count / elapsed_secs) * 60
+            if words_per_minute > 220: # Over 220 WPM exceeds realistic real-time human listening+typing
+                flags.append(f"Inhuman typing velocity ({int(words_per_minute)} words/min in studio)")
+
+    # 3. Check Overall Claim-to-Submission Time (if claimed_at timestamp available)
+    if task_claimed_at:
+        try:
+            claimed_dt = datetime.strptime(task_claimed_at[:19], "%Y-%m-%d %H:%M:%S")
+            time_spent = (datetime.now() - claimed_dt).total_seconds()
+            # If a task with > 100 words was claimed and submitted in under 45 seconds total
+            if time_spent < 45 and len(submitted_text.split()) > 75:
+                flags.append(f"Claim-to-submit duration suspiciously fast ({int(time_spent)}s)")
+        except Exception:
+            pass
+
+    if flags:
+        return True, " | ".join(flags)
+    return False, "Passed human pattern checks"
+
+
 def get_audio_from_source(video_source: str, temp_dir: str = "/tmp") -> str:
     """
     Ensures a local audio/video file path is available for Whisper.
@@ -113,10 +167,11 @@ def transcribe_with_local_whisper(media_path: str, model_name: str = "tiny") -> 
             return False, str(e)
 
 
-def run_ai_review(task_id: int):
+def run_ai_review(task_id: int, telemetry: dict = None):
     """
     Background worker function that performs AI evaluation on a submitted task.
-    Updates the database with the result and releases payout if score >= threshold.
+    Includes Anti-AI cheat detection (speed, bulk-paste, chatbot hallucination scan).
+    Updates the database with the result and releases payout if score >= threshold and no cheat detected.
     """
     conn = database.get_db_connection()
     try:
@@ -139,6 +194,39 @@ def run_ai_review(task_id: int):
         threshold = float(database.get_setting('ai_pass_threshold', '88'))
         whisper_model = database.get_setting('ai_whisper_model', 'tiny')
 
+        submitted_text = transcription['content_text'] or ""
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # ── Step 1: Run Anti-AI Cheat Detection ──────────────────────────────
+        is_ai_suspected, ai_cheat_reason = detect_ai_generation(
+            submitted_text,
+            telemetry=telemetry,
+            task_claimed_at=task['claimed_at'],
+            duration_est=task['duration_est']
+        )
+
+        if is_ai_suspected:
+            # CHEAT DETECTED: DO NOT AUTO-APPROVE
+            flag_note = f"🚨 AI-GENERATION SUSPECTED: {ai_cheat_reason}. Flagged for manual review."
+            conn.execute('''
+                UPDATE transcriptions
+                SET reviewer_feedback=?, updated_at=?
+                WHERE task_id=?
+            ''', (flag_note, now, task_id))
+
+            conn.execute(
+                "INSERT INTO task_activities (task_id, actor, action, message) VALUES (?,?,?,?)",
+                (
+                    task_id,
+                    'Anti-AI Guard',
+                    'ai_cheat_flagged',
+                    f'🚨 Suspected AI Bot/Paste submission: {ai_cheat_reason}. Auto-approval blocked.'
+                )
+            )
+            conn.commit()
+            return
+
+        # ── Step 2: Run Whisper Accuracy Evaluation ─────────────────────────
         media_source = task['video_source']
         if not media_source:
             return
@@ -174,9 +262,7 @@ def run_ai_review(task_id: int):
             return
 
         # Calculate accuracy score
-        submitted_text = transcription['content_text'] or ""
         score = compute_accuracy(submitted_text, ai_transcript_or_err)
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         feedback_note = (
             f"AI Accuracy Score: {score}%. "
@@ -211,7 +297,7 @@ def run_ai_review(task_id: int):
                 )
             )
         else:
-            # Below threshold: Request revision or leave for manual admin review
+            # Below threshold: Leave for manual admin review
             feedback_note += f" Did not meet {threshold}% pass mark threshold."
             conn.execute('''
                 UPDATE transcriptions
@@ -237,7 +323,8 @@ def run_ai_review(task_id: int):
         conn.close()
 
 
-def queue_ai_review(task_id: int):
-    """Dispatches AI review into a non-blocking background thread."""
-    thread = threading.Thread(target=run_ai_review, args=(task_id,), daemon=True)
+def queue_ai_review(task_id: int, telemetry: dict = None):
+    """Dispatches AI review into a non-blocking background thread with cheat telemetry."""
+    thread = threading.Thread(target=run_ai_review, args=(task_id, telemetry), daemon=True)
     thread.start()
+

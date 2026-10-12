@@ -34,6 +34,12 @@ class TranscribeStudio {
         this.recognition = null;
         this.isRecognizing = false;
 
+        // Anti-AI / Human Typing Telemetry
+        this.startTime = Date.now();
+        this.keystrokes = 0;
+        this.pasteEvents = 0;
+        this.pastedChars = 0;
+
         this.init(config.initialSegments, config.initialText);
     }
 
@@ -68,6 +74,17 @@ class TranscribeStudio {
 
         if (this.continuousTextarea && initialText) {
             this.continuousTextarea.value = initialText;
+        }
+
+        if (this.continuousTextarea) {
+            this.continuousTextarea.addEventListener('keydown', () => {
+                this.keystrokes++;
+            });
+            this.continuousTextarea.addEventListener('paste', (e) => {
+                this.pasteEvents++;
+                const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+                this.pastedChars += text.length;
+            });
         }
 
         this.renderSegments();
@@ -250,6 +267,14 @@ class TranscribeStudio {
             });
 
             const textarea = card.querySelector('.seg-text');
+            textarea.addEventListener('keydown', () => {
+                this.keystrokes++;
+            });
+            textarea.addEventListener('paste', (e) => {
+                this.pasteEvents++;
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text') || '';
+                this.pastedChars += pastedText.length;
+            });
             textarea.addEventListener('input', (e) => {
                 seg.text = e.target.value;
                 this.handleTypingAutoPause();
@@ -742,6 +767,15 @@ async function confirmSubmitTranscription(taskId) {
     const jsonString = studio ? JSON.stringify(studio.segments) : '[]';
     const textContent = studio ? studio.segments.map(s => `[${studio.formatTime(s.start)}] ${s.speaker}: ${s.text}`).join('\n\n') : '';
 
+    // Calculate typing & time telemetry
+    const elapsedSecs = studio && studio.startTime ? Math.round((Date.now() - studio.startTime) / 1000) : 0;
+    const telemetry = {
+        elapsed_seconds: elapsedSecs,
+        keystrokes: studio ? studio.keystrokes : 0,
+        paste_events: studio ? studio.pasteEvents : 0,
+        pasted_chars: studio ? studio.pastedChars : 0
+    };
+
     try {
         const res = await fetch(`/api/tasks/${taskId}/submit`, {
             method: 'POST',
@@ -749,7 +783,8 @@ async function confirmSubmitTranscription(taskId) {
             body: JSON.stringify({
                 content_json: jsonString,
                 content_text: textContent,
-                notes: notes
+                notes: notes,
+                telemetry: telemetry
             })
         });
 

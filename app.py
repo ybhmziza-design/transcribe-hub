@@ -1201,6 +1201,7 @@ def submit_transcription(task_id):
     content_text = data.get('content_text', '')
     content_json = data.get('content_json', '[]')
     notes        = data.get('notes', '')
+    telemetry    = data.get('telemetry', {})
     now          = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conn = database.get_db_connection()
@@ -1221,8 +1222,8 @@ def submit_transcription(task_id):
     conn.commit()
     conn.close()
 
-    # Trigger asynchronous background AI auto-reviewer
-    ai_reviewer.queue_ai_review(task_id)
+    # Trigger asynchronous background AI auto-reviewer with Anti-AI cheat telemetry
+    ai_reviewer.queue_ai_review(task_id, telemetry=telemetry)
 
     return jsonify({'success': True, 'redirect_url': url_for('task_detail', task_id=task_id)})
 
