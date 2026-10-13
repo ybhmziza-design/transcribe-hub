@@ -28,11 +28,16 @@ def is_postgres() -> bool:
 
 
 class PgRow(dict):
-    """Dict subclass allowing both dictionary and attribute-style access for rows."""
+    """Dict subclass allowing dictionary, index, and attribute-style access for rows."""
     def __getitem__(self, item):
         if isinstance(item, int):
             return list(self.values())[item]
         return super().__getitem__(item)
+
+    def __getattr__(self, item):
+        if item in self:
+            return self[item]
+        raise AttributeError(f"'PgRow' object has no attribute '{item}'")
 
 
 class PgCursorWrapper:
@@ -117,8 +122,15 @@ def get_db_connection():
         url = DATABASE_URL
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
-        conn = psycopg2.connect(url)
-        return PgConnectionWrapper(conn)
+        try:
+            conn = psycopg2.connect(url, connect_timeout=10)
+            return PgConnectionWrapper(conn)
+        except Exception as e:
+            print("PostgreSQL connection error, falling back to local SQLite:", e)
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH, timeout=30)
+            conn.row_factory = sqlite3.Row
+            return conn
     else:
         import sqlite3
         conn = sqlite3.connect(DB_PATH, timeout=30)
@@ -126,6 +138,7 @@ def get_db_connection():
         conn.execute("PRAGMA journal_mode = WAL")
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
+
 
 
 def init_db():
