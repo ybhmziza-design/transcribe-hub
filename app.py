@@ -1339,11 +1339,19 @@ def claim_task(task_id):
           (now + timedelta(hours=48)).strftime("%Y-%m-%d %H:%M:%S"),
           now.strftime("%Y-%m-%d %H:%M:%S"), task_id))
 
-    conn.execute('''
-        INSERT OR REPLACE INTO transcriptions
-          (task_id, transcriber_id, transcriber_nickname, content_text, content_json, status)
-        VALUES (?, ?, ?, '', '[]', 'draft')
-    ''', (task_id, user['id'], user['full_name']))
+    existing_tr = conn.execute('SELECT id FROM transcriptions WHERE task_id = ?', (task_id,)).fetchone()
+    if existing_tr:
+        conn.execute('''
+            UPDATE transcriptions
+            SET transcriber_id=?, transcriber_nickname=?, content_text='', content_json='[]', status='draft', updated_at=?
+            WHERE task_id=?
+        ''', (user['id'], user['full_name'], now.strftime("%Y-%m-%d %H:%M:%S"), task_id))
+    else:
+        conn.execute('''
+            INSERT INTO transcriptions
+              (task_id, transcriber_id, transcriber_nickname, content_text, content_json, status)
+            VALUES (?, ?, ?, '', '[]', 'draft')
+        ''', (task_id, user['id'], user['full_name']))
 
     conn.execute(
         "INSERT INTO task_activities (task_id, actor, action, message) VALUES (?,?,?,?)",

@@ -1,14 +1,12 @@
 """
 Database schema, connection helper, and settings manager for TranscribeHub.
-Single-admin model with Paystack entry fee integration.
+Supports both PostgreSQL (via DATABASE_URL on Render) and SQLite (local development).
 """
-import sqlite3
 import os
 import hashlib
 import uuid
-from datetime import datetime
-
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'transcribe.db')
+import re
+from datetime import datetime, timedelta
 
 # ─── Default Credentials & Defaults ──────────────────────────────────────────
 DEFAULT_ADMIN_USERNAME = "tanuialpha2@gmail.com"
@@ -17,167 +15,360 @@ DEFAULT_ENTRY_FEE_AMOUNT = 573
 DEFAULT_ENTRY_FEE_CURRENCY = "KES"
 # ──────────────────────────────────────────────────────────────────────────────
 
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'transcribe.db')
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+
 
 def _hash(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 
+def is_postgres() -> bool:
+    return bool(DATABASE_URL)
+
+
+class PgRow(dict):
+    """Dict subclass allowing both dictionary and attribute-style access for rows."""
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return list(self.values())[item]
+        return super().__getitem__(item)
+
+
+class PgCursorWrapper:
+    """Wraps a psycopg2 cursor so that ? parameter placeholders are translated to %s."""
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, query, params=None):
+        clean_q = query
+        if '?' in clean_q:
+            clean_q = re.sub(r'\?', '%s', clean_q)
+        if params is not None:
+            if isinstance(params, tuple):
+                params = list(params)
+            self._cursor.execute(clean_q, params)
+        else:
+            self._cursor.execute(clean_q)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        return PgRow(row)
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        return [PgRow(r) for r in rows]
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+
+class PgConnectionWrapper:
+    """Wraps a psycopg2 connection to mimic sqlite3 connection semantics."""
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self):
+        import psycopg2.extras
+        return PgCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor))
+
+    def execute(self, query, params=None):
+        cur = self.cursor()
+        cur.execute(query, params)
+        return cur
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
+
+
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    if is_postgres():
+        import psycopg2
+        url = DATABASE_URL
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        conn = psycopg2.connect(url)
+        return PgConnectionWrapper(conn)
+    else:
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH, timeout=30)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
 
 
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # ── Admin table ────────────────────────────────────────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS admin (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT    UNIQUE NOT NULL,
-        password TEXT    NOT NULL
-    )
-    ''')
+    if is_postgres():
+        # ── PostgreSQL Schema ──────────────────────────────────────────────────
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin (
+            id       SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+        ''')
 
-    # ── Platform Settings table (Paystack keys, entry fee amount/currency) ─────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS settings (
-        key   TEXT PRIMARY KEY,
-        value TEXT
-    )
-    ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        )
+        ''')
 
-    # ── Users / Transcribers table ─────────────────────────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id             INTEGER PRIMARY KEY AUTOINCREMENT,
-        username       TEXT    UNIQUE NOT NULL,
-        email          TEXT    UNIQUE NOT NULL,
-        password       TEXT    NOT NULL,
-        full_name      TEXT    NOT NULL,
-        phone          TEXT,
-        payout_details TEXT,
-        is_paid        INTEGER DEFAULT 0,
-        paid_at        TIMESTAMP,
-        payment_ref    TEXT,
-        balance        REAL    DEFAULT 0.0,
-        rating         REAL    DEFAULT 5.0,
-        terms_agreed   INTEGER DEFAULT 0,
-        terms_agreed_at TIMESTAMP,
-        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id              SERIAL PRIMARY KEY,
+            username        TEXT UNIQUE NOT NULL,
+            email           TEXT UNIQUE NOT NULL,
+            password        TEXT NOT NULL,
+            full_name       TEXT NOT NULL,
+            phone           TEXT,
+            payout_details  TEXT,
+            is_paid         INTEGER DEFAULT 0,
+            paid_at         TIMESTAMP,
+            payment_ref     TEXT,
+            balance         REAL DEFAULT 0.0,
+            rating          REAL DEFAULT 5.0,
+            terms_agreed    INTEGER DEFAULT 0,
+            terms_agreed_at TIMESTAMP,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
 
-    # Migration for existing users table
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN terms_agreed INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN terms_agreed_at TIMESTAMP")
-    except sqlite3.OperationalError:
-        pass
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payments (
+            id              SERIAL PRIMARY KEY,
+            user_id         INTEGER NOT NULL REFERENCES users(id),
+            amount          REAL NOT NULL,
+            currency        TEXT DEFAULT 'KES',
+            payment_method  TEXT DEFAULT 'paystack',
+            transaction_ref TEXT UNIQUE NOT NULL,
+            paystack_status TEXT DEFAULT 'pending',
+            phone_number    TEXT,
+            status          TEXT NOT NULL DEFAULT 'completed',
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
 
-    # ── Payments table (records Paystack transactions) ─────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS payments (
-        id              INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id         INTEGER NOT NULL,
-        amount          REAL    NOT NULL,
-        currency        TEXT    DEFAULT 'KES',
-        payment_method  TEXT    DEFAULT 'paystack',
-        transaction_ref TEXT    UNIQUE NOT NULL,
-        paystack_status TEXT    DEFAULT 'pending',
-        phone_number    TEXT,
-        status          TEXT    NOT NULL DEFAULT 'completed',
-        created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-    ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id               SERIAL PRIMARY KEY,
+            title            TEXT NOT NULL,
+            description      TEXT,
+            category         TEXT NOT NULL DEFAULT 'General',
+            language         TEXT NOT NULL DEFAULT 'English (US)',
+            difficulty       TEXT NOT NULL DEFAULT 'Medium',
+            reward           REAL NOT NULL DEFAULT 15.0,
+            duration_est     TEXT DEFAULT '05:00',
+            deadline         TEXT,
+            guidelines       TEXT,
+            video_type       TEXT NOT NULL DEFAULT 'upload',
+            video_source     TEXT NOT NULL,
+            video_filename   TEXT,
+            status           TEXT NOT NULL DEFAULT 'open',
+            claimed_by       INTEGER REFERENCES users(id),
+            claimer_nickname TEXT,
+            claimed_at       TIMESTAMP,
+            deadline_claimed TIMESTAMP,
+            created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
 
-    # ── Tasks ─────────────────────────────────────────────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS tasks (
-        id               INTEGER PRIMARY KEY AUTOINCREMENT,
-        title            TEXT    NOT NULL,
-        description      TEXT,
-        category         TEXT    NOT NULL DEFAULT 'General',
-        language         TEXT    NOT NULL DEFAULT 'English (US)',
-        difficulty       TEXT    NOT NULL DEFAULT 'Medium',
-        reward           REAL    NOT NULL DEFAULT 15.0,
-        duration_est     TEXT    DEFAULT '05:00',
-        deadline         TEXT,
-        guidelines       TEXT,
-        video_type       TEXT    NOT NULL DEFAULT 'upload',
-        video_source     TEXT    NOT NULL,
-        video_filename   TEXT,
-        status           TEXT    NOT NULL DEFAULT 'open',
-        claimed_by       INTEGER,
-        claimer_nickname TEXT,
-        claimed_at       TIMESTAMP,
-        deadline_claimed TIMESTAMP,
-        created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (claimed_by) REFERENCES users (id)
-    )
-    ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transcriptions (
+            id                   SERIAL PRIMARY KEY,
+            task_id              INTEGER NOT NULL UNIQUE REFERENCES tasks(id),
+            transcriber_id       INTEGER REFERENCES users(id),
+            transcriber_nickname TEXT,
+            content_text         TEXT DEFAULT '',
+            content_json         TEXT DEFAULT '[]',
+            status               TEXT NOT NULL DEFAULT 'draft',
+            transcriber_notes    TEXT,
+            reviewer_feedback    TEXT,
+            submitted_at         TIMESTAMP,
+            reviewed_at          TIMESTAMP,
+            created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
 
-    # ── Transcriptions ────────────────────────────────────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS transcriptions (
-        id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id            INTEGER NOT NULL UNIQUE,
-        transcriber_id     INTEGER,
-        transcriber_nickname TEXT,
-        content_text       TEXT    DEFAULT '',
-        content_json       TEXT    DEFAULT '[]',
-        status             TEXT    NOT NULL DEFAULT 'draft',
-        transcriber_notes  TEXT,
-        reviewer_feedback  TEXT,
-        submitted_at       TIMESTAMP,
-        reviewed_at        TIMESTAMP,
-        created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (task_id) REFERENCES tasks (id),
-        FOREIGN KEY (transcriber_id) REFERENCES users (id)
-    )
-    ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS task_activities (
+            id         SERIAL PRIMARY KEY,
+            task_id    INTEGER NOT NULL REFERENCES tasks(id),
+            actor      TEXT NOT NULL,
+            action     TEXT NOT NULL,
+            message    TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
 
-    # ── Activity log ──────────────────────────────────────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS task_activities (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        task_id    INTEGER NOT NULL,
-        actor      TEXT    NOT NULL,
-        action     TEXT    NOT NULL,
-        message    TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (task_id) REFERENCES tasks (id)
-    )
-    ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER NOT NULL REFERENCES users(id),
+            token      TEXT UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used       INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
 
-    # ── Password Reset Tokens ─────────────────────────────────────────────────
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS password_resets (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id    INTEGER NOT NULL,
-        token      TEXT    UNIQUE NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        used       INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-    ''')
+    else:
+        # ── SQLite Schema ──────────────────────────────────────────────────────
+        import sqlite3
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT    UNIQUE NOT NULL,
+            password TEXT    NOT NULL
+        )
+        ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        )
+        ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            username       TEXT    UNIQUE NOT NULL,
+            email          TEXT    UNIQUE NOT NULL,
+            password       TEXT    NOT NULL,
+            full_name      TEXT    NOT NULL,
+            phone          TEXT,
+            payout_details TEXT,
+            is_paid        INTEGER DEFAULT 0,
+            paid_at        TIMESTAMP,
+            payment_ref    TEXT,
+            balance        REAL    DEFAULT 0.0,
+            rating         REAL    DEFAULT 5.0,
+            terms_agreed   INTEGER DEFAULT 0,
+            terms_agreed_at TIMESTAMP,
+            created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN terms_agreed INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN terms_agreed_at TIMESTAMP")
+        except sqlite3.OperationalError:
+            pass
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payments (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL,
+            amount          REAL    NOT NULL,
+            currency        TEXT    DEFAULT 'KES',
+            payment_method  TEXT    DEFAULT 'paystack',
+            transaction_ref TEXT    UNIQUE NOT NULL,
+            paystack_status TEXT    DEFAULT 'pending',
+            phone_number    TEXT,
+            status          TEXT    NOT NULL DEFAULT 'completed',
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            title            TEXT    NOT NULL,
+            description      TEXT,
+            category         TEXT    NOT NULL DEFAULT 'General',
+            language         TEXT    NOT NULL DEFAULT 'English (US)',
+            difficulty       TEXT    NOT NULL DEFAULT 'Medium',
+            reward           REAL    NOT NULL DEFAULT 15.0,
+            duration_est     TEXT    DEFAULT '05:00',
+            deadline         TEXT,
+            guidelines       TEXT,
+            video_type       TEXT    NOT NULL DEFAULT 'upload',
+            video_source     TEXT    NOT NULL,
+            video_filename   TEXT,
+            status           TEXT    NOT NULL DEFAULT 'open',
+            claimed_by       INTEGER,
+            claimer_nickname TEXT,
+            claimed_at       TIMESTAMP,
+            deadline_claimed TIMESTAMP,
+            created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (claimed_by) REFERENCES users (id)
+        )
+        ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS transcriptions (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id            INTEGER NOT NULL UNIQUE,
+            transcriber_id     INTEGER,
+            transcriber_nickname TEXT,
+            content_text       TEXT    DEFAULT '',
+            content_json       TEXT    DEFAULT '[]',
+            status             TEXT    NOT NULL DEFAULT 'draft',
+            transcriber_notes  TEXT,
+            reviewer_feedback  TEXT,
+            submitted_at       TIMESTAMP,
+            reviewed_at        TIMESTAMP,
+            created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks (id),
+            FOREIGN KEY (transcriber_id) REFERENCES users (id)
+        )
+        ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS task_activities (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id    INTEGER NOT NULL,
+            actor      TEXT    NOT NULL,
+            action     TEXT    NOT NULL,
+            message    TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (task_id) REFERENCES tasks (id)
+        )
+        ''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER NOT NULL,
+            token      TEXT    UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used       INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        ''')
 
     conn.commit()
 
     # Seed admin account if not present
     cursor.execute('SELECT COUNT(*) FROM admin')
-    if cursor.fetchone()[0] == 0:
+    row = cursor.fetchone()
+    admin_count = row[0] if row else 0
+    if admin_count == 0:
         cursor.execute(
             'INSERT INTO admin (username, password) VALUES (?, ?)',
             (DEFAULT_ADMIN_USERNAME, _hash(DEFAULT_ADMIN_PASSWORD))
@@ -198,9 +389,10 @@ def init_db():
         'paypal_entry_fee_usd': '5.00',
     }
     for k, v in default_settings.items():
-        cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (k, v))
+        existing = cursor.execute('SELECT key FROM settings WHERE key = ?', (k,)).fetchone()
+        if not existing:
+            cursor.execute('INSERT INTO settings (key, value) VALUES (?, ?)', (k, v))
     conn.commit()
-
     conn.close()
 
 
@@ -217,7 +409,11 @@ def get_setting(key: str, default: str = "") -> str:
 
 def set_setting(key: str, value: str):
     conn = get_db_connection()
-    conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
+    row = conn.execute('SELECT key FROM settings WHERE key = ?', (key,)).fetchone()
+    if row:
+        conn.execute('UPDATE settings SET value = ? WHERE key = ?', (value, key))
+    else:
+        conn.execute('INSERT INTO settings (key, value) VALUES (?, ?)', (key, value))
     conn.commit()
     conn.close()
 
@@ -232,7 +428,6 @@ def get_entry_fee() -> tuple[int, str]:
 
 def verify_admin(username: str, password: str) -> bool:
     conn = get_db_connection()
-    # Case-insensitive match — store and compare lowercased
     row = conn.execute(
         'SELECT password FROM admin WHERE LOWER(username) = ?', (username.strip().lower(),)
     ).fetchone()
@@ -318,16 +513,6 @@ def get_user_by_id(user_id: int):
 # ─── Worker Performance Tier ──────────────────────────────────────────────────
 
 def get_worker_performance(user_id: int) -> dict:
-    """
-    Returns a dict with:
-      - total_submitted: number of tasks reviewed for this worker
-      - approved: number approved (by admin or AI)
-      - rejected: number rejected
-      - approval_rate: float 0.0–100.0
-      - tier: 'Starter' | 'Worker' | 'Senior' | 'Expert'
-      - max_tasks: int — how many tasks they can hold simultaneously
-      - tier_color: Tailwind color token for the badge
-    """
     conn = get_db_connection()
     row = conn.execute('''
         SELECT
@@ -344,7 +529,6 @@ def get_worker_performance(user_id: int) -> dict:
     rejected = (row['rejected'] or 0) if row else 0
     rate     = (approved / total * 100) if total > 0 else 0.0
 
-    # Require at least 1 reviewed task to leave Starter
     if total == 0 or approved == 0:
         tier, max_tasks, color = 'Starter', 1, 'slate'
     elif rate >= 90:
@@ -368,7 +552,6 @@ def get_worker_performance(user_id: int) -> dict:
 
 
 def get_worker_active_task_count(user_id: int) -> int:
-    """Returns how many tasks this worker currently holds (status='claimed')."""
     conn = get_db_connection()
     row = conn.execute(
         "SELECT COUNT(*) AS cnt FROM tasks WHERE claimed_by = ? AND status = 'claimed'",
@@ -384,11 +567,19 @@ def record_payment(user_id: int, amount: float, currency: str, transaction_ref: 
     conn = get_db_connection()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Record or update payment record
-    conn.execute('''
-        INSERT OR REPLACE INTO payments (user_id, amount, currency, payment_method, transaction_ref, paystack_status, phone_number, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?)
-    ''', (user_id, amount, currency, payment_method, transaction_ref, paystack_status, phone, now))
+    # Portable Upsert for payments record
+    existing_p = conn.execute('SELECT id FROM payments WHERE transaction_ref = ?', (transaction_ref,)).fetchone()
+    if existing_p:
+        conn.execute('''
+            UPDATE payments
+            SET user_id = ?, amount = ?, currency = ?, payment_method = ?, paystack_status = ?, phone_number = ?, status = 'completed'
+            WHERE transaction_ref = ?
+        ''', (user_id, amount, currency, payment_method, paystack_status, phone, transaction_ref))
+    else:
+        conn.execute('''
+            INSERT INTO payments (user_id, amount, currency, payment_method, transaction_ref, paystack_status, phone_number, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?)
+        ''', (user_id, amount, currency, payment_method, transaction_ref, paystack_status, phone, now))
 
     # Mark user as paid & activated
     conn.execute('''
@@ -405,27 +596,20 @@ def record_payment(user_id: int, amount: float, currency: str, transaction_ref: 
 # ─── Password Reset Helpers ────────────────────────────────────────────────────
 
 def create_reset_token(email: str) -> tuple[bool, str]:
-    """
-    Creates a one-time password reset token for the given email.
-    Returns (True, token) on success, or (False, error_message).
-    Token expires in 1 hour.
-    """
     conn = get_db_connection()
     user = conn.execute(
         'SELECT id FROM users WHERE email = ?', (email.lower().strip(),)
     ).fetchone()
     if not user:
         conn.close()
-        # Return success to avoid leaking whether an email is registered
         return True, "__no_user__"
 
-    # Expire any old unused tokens for this user
     conn.execute(
         'UPDATE password_resets SET used = 1 WHERE user_id = ? AND used = 0',
         (user['id'],)
     )
 
-    token = uuid.uuid4().hex + uuid.uuid4().hex  # 64-char hex token
+    token = uuid.uuid4().hex + uuid.uuid4().hex
     expires_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
 
     conn.execute(
@@ -438,10 +622,6 @@ def create_reset_token(email: str) -> tuple[bool, str]:
 
 
 def verify_reset_token(token: str):
-    """
-    Validates a reset token. Returns the (user dict, reset_id) if valid and not expired,
-    or (None, None) if invalid / expired / already used.
-    """
     conn = get_db_connection()
     row = conn.execute(
         '''SELECT pr.id AS reset_id, pr.user_id, pr.expires_at, pr.used
@@ -458,8 +638,9 @@ def verify_reset_token(token: str):
         conn.close()
         return None, None
 
-    # Check expiry
-    expires_at = datetime.strptime(row['expires_at'], "%Y-%m-%d %H:%M:%S")
+    expires_at = row['expires_at']
+    if isinstance(expires_at, str):
+        expires_at = datetime.strptime(expires_at, "%Y-%m-%d %H:%M:%S")
     if datetime.now() > expires_at:
         conn.close()
         return None, None
@@ -471,7 +652,6 @@ def verify_reset_token(token: str):
 
 
 def consume_reset_token(reset_id: int, user_id: int, new_password: str):
-    """Marks the token as used and updates the user's password."""
     conn = get_db_connection()
     conn.execute('UPDATE password_resets SET used = 1 WHERE id = ?', (reset_id,))
     conn.execute('UPDATE users SET password = ? WHERE id = ?', (_hash(new_password), user_id))
