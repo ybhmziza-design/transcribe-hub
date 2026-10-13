@@ -192,7 +192,10 @@ def init_db():
         'paystack_secret_key': os.environ.get('PAYSTACK_SECRET_KEY', 'sk_test_sample_key_replace_with_yours'),
         'ai_auto_review_enabled': '1',
         'ai_pass_threshold': '88',
-        'ai_whisper_model': 'tiny'
+        'ai_whisper_model': 'tiny',
+        'paypal_client_id': '',
+        'paypal_client_secret': '',
+        'paypal_entry_fee_usd': '5.00',
     }
     for k, v in default_settings.items():
         cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', (k, v))

@@ -37,8 +37,8 @@
         {% endfor %}
     </div>
 
-    <!-- Settings Row (Paystack API Keys, Cloudflare R2, SMTP Email, AI Review, Password Change) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+    <!-- Settings Row (Paystack API Keys, Cloudflare R2, SMTP Email, AI Review, PayPal, Password Change) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
         <!-- Paystack Configuration Panel -->
         <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden" open>
             <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-white list-none flex items-center justify-between">
@@ -204,6 +204,43 @@
                     </div>
                     <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition">
                         Save AI Review Settings
+                    </button>
+                </form>
+            </div>
+        </details>
+
+        <!-- PayPal Settings Panel -->
+        <details class="bg-slate-900 border border-slate-800 rounded-2xl shadow overflow-hidden">
+            <summary class="px-6 py-4 cursor-pointer font-semibold text-sm text-slate-300 hover:text-white list-none flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                    <span class="text-base">🅿️</span>
+                    PayPal (International)
+                </span>
+                <span class="text-xs {% if paypal_client_id %}text-blue-400{% else %}text-slate-500{% endif %} font-bold">
+                    {% if paypal_client_id %}Configured{% else %}Not Set{% endif %}
+                </span>
+            </summary>
+            <div class="px-6 pb-6 border-t border-slate-800 pt-4">
+                <p class="text-xs text-slate-400 mb-3">Allow international users to pay the entry fee via PayPal. Get your Client ID &amp; Secret from <a href="https://developer.paypal.com" target="_blank" class="text-blue-400 hover:underline">developer.paypal.com</a> → My Apps.</p>
+                <form method="POST" action="{{ url_for('update_settings') }}" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">PayPal Client ID</label>
+                        <input type="text" name="paypal_client_id" value="{{ paypal_client_id }}" placeholder="AXxx... (from developer.paypal.com)"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">PayPal Secret Key</label>
+                        <input type="password" name="paypal_client_secret" value="{{ paypal_client_secret }}" placeholder="EBxx... (keep secret)"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">USD Amount to Charge</label>
+                        <input type="number" name="paypal_entry_fee_usd" value="{{ paypal_usd }}" step="0.01" min="0.01" placeholder="5.00"
+                               class="w-full bg-slate-950 text-white font-mono text-xs px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-blue-500">
+                        <span class="text-[10px] text-slate-500 mt-1 block">International users pay this USD amount via PayPal.</span>
+                    </div>
+                    <button type="submit" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition">
+                        Save PayPal Settings
                     </button>
                 </form>
             </div>

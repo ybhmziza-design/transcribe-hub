@@ -1,9 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Account Activation — Pay with Paystack — TranscribeHub{% endblock %}
+{% block title %}Account Activation — Pay Entry Fee — TranscribeHub{% endblock %}
 
 {% block head %}
 <!-- Paystack Inline Popup JS -->
 <script src="https://js.paystack.co/v1/inline.js"></script>
+{% if paypal_client_id %}
+<!-- PayPal JS SDK — loaded only when admin has configured PayPal -->
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture" data-sdk-integration-source="button-factory"></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -18,7 +22,7 @@
         </div>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Activate Your Worker Account</h1>
         <p class="text-slate-400 text-sm mt-2 max-w-md mx-auto">
-            Pay the one-time registration fee of <strong class="text-emerald-400 font-bold">{{ currency }} {{ "{:,}".format(amount) }}</strong> securely through Paystack using <strong>M-Pesa, Credit/Debit Card, or Bank Transfer</strong>.
+            Pay the one-time registration fee of <strong class="text-emerald-400 font-bold">{{ currency }} {{ "{:,}".format(amount) }}</strong> to unlock access to all transcription tasks.
         </p>
     </div>
 
@@ -29,7 +33,7 @@
         <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
             <div>
                 <span class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Entry Fee</span>
-                <span class="text-xs text-slate-500">Transcriber Onboarding & Platform Setup</span>
+                <span class="text-xs text-slate-500">Transcriber Onboarding &amp; Platform Setup</span>
             </div>
             <div class="text-right">
                 <span class="text-2xl sm:text-3xl font-black text-emerald-400">{{ currency }} {{ "{:,}".format(amount) }}</span>
@@ -40,35 +44,66 @@
         <div class="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300 space-y-1.5">
             <div class="flex justify-between"><span class="text-slate-500">Full Name:</span><strong class="text-white">{{ user.full_name }}</strong></div>
             <div class="flex justify-between"><span class="text-slate-500">Email:</span><span class="text-slate-300">{{ user.email }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Payment Processor:</span><span class="text-emerald-400 font-semibold">Paystack (M-Pesa, Card, Bank)</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Kenyan Users:</span><span class="text-emerald-400 font-semibold">Paystack (M-Pesa, Card, Bank)</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">International Users:</span><span class="text-blue-400 font-semibold">PayPal (USD ${{ paypal_usd }})</span></div>
         </div>
 
-        <!-- Paystack Button & Action -->
-        <div class="space-y-4 pt-2">
-            <button id="paystack-btn" type="button" onclick="payWithPaystack()"
-                    class="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2 group">
-                <svg class="w-5 h-5 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span>Pay {{ currency }} {{ "{:,}".format(amount) }} with Paystack</span>
-                <span>→</span>
-            </button>
+        <!-- ── Paystack Section ── -->
+        <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">🇰🇪 Pay with Paystack (Kenya)</p>
+            <div class="space-y-3">
+                <button id="paystack-btn" type="button" onclick="payWithPaystack()"
+                        class="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2 group">
+                    <svg class="w-5 h-5 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>Pay {{ currency }} {{ "{:,}".format(amount) }} with Paystack</span>
+                    <span>→</span>
+                </button>
 
-            <!-- Loading Spinner (hidden by default) -->
-            <div id="pay-loader" class="hidden text-center py-2 text-xs text-slate-400 flex items-center justify-center gap-2">
-                <div class="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-                <span>Connecting to Paystack gateway...</span>
+                <!-- Loading Spinner (hidden by default) -->
+                <div id="pay-loader" class="hidden text-center py-2 text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <div class="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Connecting to Paystack gateway...</span>
+                </div>
+            </div>
+
+            <!-- Payment Channels Supported -->
+            <div class="mt-3 flex items-center justify-center gap-4 text-slate-500 text-xs">
+                <span class="flex items-center gap-1">🟢 M-Pesa</span>
+                <span>•</span>
+                <span class="flex items-center gap-1">💳 Visa &amp; Mastercard</span>
+                <span>•</span>
+                <span class="flex items-center gap-1">🏦 Bank Transfer</span>
             </div>
         </div>
 
-        <!-- Payment Channels Supported -->
-        <div class="pt-4 border-t border-slate-800/80 flex items-center justify-center gap-4 text-slate-500 text-xs">
-            <span class="flex items-center gap-1">🟢 M-Pesa</span>
-            <span>•</span>
-            <span class="flex items-center gap-1">💳 Visa & Mastercard</span>
-            <span>•</span>
-            <span class="flex items-center gap-1">🏦 Bank Transfer</span>
+        {% if paypal_client_id %}
+        <!-- Divider -->
+        <div class="flex items-center gap-3">
+            <div class="flex-1 h-px bg-slate-800"></div>
+            <span class="text-xs text-slate-500 font-semibold uppercase tracking-widest">or</span>
+            <div class="flex-1 h-px bg-slate-800"></div>
         </div>
+
+        <!-- ── PayPal Section ── -->
+        <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">🌍 Pay with PayPal (International — USD ${{ paypal_usd }})</p>
+
+            <!-- PayPal status message -->
+            <div id="paypal-msg" class="hidden mb-3 text-center text-xs px-3 py-2 rounded-lg"></div>
+
+            <!-- PayPal button container — PayPal SDK renders here -->
+            <div id="paypal-button-container" class="rounded-xl overflow-hidden"></div>
+
+            <p class="text-center text-xs text-slate-500 mt-2">Secure checkout via PayPal. Funds go directly to the platform.</p>
+        </div>
+        {% else %}
+        <!-- PayPal not configured yet -->
+        <div class="border border-dashed border-slate-700 rounded-xl p-4 text-center text-xs text-slate-500">
+            <span>🌍 International payment via PayPal coming soon. For now, please use Paystack or contact support.</span>
+        </div>
+        {% endif %}
 
         <!-- Free to browse link -->
         <p class="text-center text-xs text-slate-400 pt-2">
@@ -129,7 +164,6 @@ async function payWithPaystack() {
                     ]
                 },
                 callback: function(response) {
-                    // Payment successful: verify with server
                     verifyPaymentOnServer(response.reference);
                 },
                 onClose: function() {
@@ -138,7 +172,6 @@ async function payWithPaystack() {
             });
             handler.openIframe();
         } else {
-            // Development / Test confirmation fallback if custom keys are not yet configured in admin
             if (confirm("Paystack Gateway Simulation:\n\nConfirm payment of " + CURRENCY + " " + AMOUNT + " for " + USER_NAME + "?\n\n(To use live Paystack M-Pesa / Card checkout, add your Paystack API keys in the Admin Dashboard)")) {
                 verifyPaymentOnServer(data.reference || ('TH-MOCK-' + Date.now()));
             }
@@ -172,5 +205,83 @@ async function verifyPaymentOnServer(reference) {
         showToast('Network error during verification', 'error');
     }
 }
+
+// ── PayPal SDK Integration ────────────────────────────────────────────────────
+{% if paypal_client_id %}
+function showPayPalMsg(text, type) {
+    const el = document.getElementById('paypal-msg');
+    el.textContent = text;
+    el.className = 'mb-3 text-center text-xs px-3 py-2 rounded-lg ' + (
+        type === 'error'   ? 'bg-red-900/40 text-red-300 border border-red-700/50' :
+        type === 'success' ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' :
+                             'bg-blue-900/40 text-blue-300 border border-blue-700/50'
+    );
+    el.classList.remove('hidden');
+}
+
+paypal.Buttons({
+    style: {
+        layout:  'vertical',
+        color:   'blue',
+        shape:   'rect',
+        label:   'pay',
+        height:  48
+    },
+
+    // Step 1: Create the order server-side
+    createOrder: async function() {
+        showPayPalMsg('Creating PayPal order...', 'info');
+        try {
+            const res = await fetch("{{ url_for('paypal_create_order') }}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data.status === 'success' && data.order_id) {
+                document.getElementById('paypal-msg').classList.add('hidden');
+                return data.order_id;
+            } else {
+                showPayPalMsg('❌ ' + (data.message || 'Could not create PayPal order.'), 'error');
+                throw new Error(data.message || 'Order creation failed');
+            }
+        } catch (e) {
+            showPayPalMsg('❌ ' + e.message, 'error');
+            throw e;
+        }
+    },
+
+    // Step 2: Capture after user approves
+    onApprove: async function(data, actions) {
+        showPayPalMsg('Processing payment... please wait.', 'info');
+        try {
+            const res = await fetch("{{ url_for('paypal_capture_order') }}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order_id: data.orderID })
+            });
+            const result = await res.json();
+            if (result.status === 'success') {
+                showPayPalMsg('✅ ' + result.message + ' Redirecting...', 'success');
+                setTimeout(() => {
+                    window.location.href = result.redirect_url || "{{ url_for('index') }}";
+                }, 1200);
+            } else {
+                showPayPalMsg('❌ ' + (result.message || 'Capture failed. Contact support.'), 'error');
+            }
+        } catch (e) {
+            showPayPalMsg('❌ Network error: ' + e.message, 'error');
+        }
+    },
+
+    onError: function(err) {
+        showPayPalMsg('❌ PayPal error: ' + err.toString(), 'error');
+    },
+
+    onCancel: function() {
+        showPayPalMsg('Payment cancelled. You can try again anytime.', 'info');
+    }
+
+}).render('#paypal-button-container');
+{% endif %}
 </script>
 {% endblock %}

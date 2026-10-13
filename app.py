@@ -411,12 +411,16 @@ def pay_entry_fee():
 
     amount, currency = database.get_entry_fee()
     pub_key = database.get_setting('paystack_public_key', '')
+    paypal_client_id = database.get_setting('paypal_client_id', '')
+    paypal_usd = database.get_setting('paypal_entry_fee_usd', '5.00')
 
     return render_template('pay_entry_fee.html',
                            user=user,
                            amount=amount,
                            currency=currency,
-                           paystack_public_key=pub_key)
+                           paystack_public_key=pub_key,
+                           paypal_client_id=paypal_client_id,
+                           paypal_usd=paypal_usd)
 
 
 @app.route('/api/paystack/initialize', methods=['POST'])
@@ -582,6 +586,163 @@ def paystack_verify_api():
 
     return jsonify({"status": "error", "message": "Verification failed"}), 400
 
+
+# ─── PayPal Entry Fee (International Users) ───────────────────────────────────
+
+@app.route('/api/paypal/create-order', methods=['POST'])
+@require_user
+def paypal_create_order():
+    """Creates a PayPal order for the entry fee and returns the order ID."""
+    import base64 as _b64
+
+    client_id = database.get_setting('paypal_client_id', '').strip()
+    client_secret = database.get_setting('paypal_client_secret', '').strip()
+    usd_amount = database.get_setting('paypal_entry_fee_usd', '5.00').strip()
+
+    if not client_id or not client_secret:
+        return jsonify({"status": "error", "message": "PayPal is not configured yet. Please contact support."}), 400
+
+    # Get an access token from PayPal
+    auth_str = f"{client_id}:{client_secret}"
+    encoded = _b64.b64encode(auth_str.encode()).decode()
+    token_headers = {
+        "Authorization": f"Basic {encoded}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    try:
+        token_resp = requests.post(
+            "https://api-m.paypal.com/v1/oauth2/token",
+            data="grant_type=client_credentials",
+            headers=token_headers,
+            timeout=15
+        )
+        token_data = token_resp.json()
+        access_token = token_data.get("access_token")
+        if not access_token:
+            return jsonify({"status": "error", "message": "PayPal auth failed: " + str(token_data.get("error_description", ""))}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"PayPal connection error: {str(e)}"}), 500
+
+    # Create the PayPal order
+    user = get_current_user()
+    order_headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    order_payload = {
+        "intent": "CAPTURE",
+        "purchase_units": [{
+            "amount": {
+                "currency_code": "USD",
+                "value": usd_amount
+            },
+            "description": f"Transcribers Hub – Account Activation Fee (User: {user['username']})"
+        }],
+        "application_context": {
+            "brand_name": "Transcribers Hub",
+            "landing_page": "NO_PREFERENCE",
+            "user_action": "PAY_NOW"
+        }
+    }
+    try:
+        order_resp = requests.post(
+            "https://api-m.paypal.com/v2/checkout/orders",
+            json=order_payload,
+            headers=order_headers,
+            timeout=15
+        )
+        order_data = order_resp.json()
+        order_id = order_data.get("id")
+        if not order_id:
+            return jsonify({"status": "error", "message": "PayPal order creation failed: " + str(order_data)}), 400
+        return jsonify({"status": "success", "order_id": order_id})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"PayPal order error: {str(e)}"}), 500
+
+
+@app.route('/api/paypal/capture-order', methods=['POST'])
+@require_user
+def paypal_capture_order():
+    """Captures a PayPal order after user approves, then activates the user's account."""
+    import base64 as _b64
+
+    data = request.get_json() or {}
+    order_id = data.get('order_id', '').strip()
+    if not order_id:
+        return jsonify({"status": "error", "message": "Order ID required"}), 400
+
+    client_id = database.get_setting('paypal_client_id', '').strip()
+    client_secret = database.get_setting('paypal_client_secret', '').strip()
+    usd_amount = database.get_setting('paypal_entry_fee_usd', '5.00').strip()
+
+    if not client_id or not client_secret:
+        return jsonify({"status": "error", "message": "PayPal not configured"}), 400
+
+    # Re-authenticate
+    auth_str = f"{client_id}:{client_secret}"
+    encoded = _b64.b64encode(auth_str.encode()).decode()
+    token_headers = {
+        "Authorization": f"Basic {encoded}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    try:
+        token_resp = requests.post(
+            "https://api-m.paypal.com/v1/oauth2/token",
+            data="grant_type=client_credentials",
+            headers=token_headers,
+            timeout=15
+        )
+        access_token = token_resp.json().get("access_token")
+        if not access_token:
+            return jsonify({"status": "error", "message": "PayPal re-auth failed"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"PayPal error: {str(e)}"}), 500
+
+    # Capture the order
+    capture_headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    try:
+        cap_resp = requests.post(
+            f"https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture",
+            headers=capture_headers,
+            timeout=15
+        )
+        cap_data = cap_resp.json()
+        status = cap_data.get("status")
+        if status != "COMPLETED":
+            return jsonify({"status": "error", "message": f"PayPal capture not completed: {status}"}), 400
+
+        # Extract actual captured amount
+        try:
+            cap_unit = cap_data["purchase_units"][0]["payments"]["captures"][0]
+            paid_amount = float(cap_unit["amount"]["value"])
+            paid_currency = cap_unit["amount"]["currency_code"]
+            paypal_tx_id = cap_unit["id"]
+        except (KeyError, IndexError, ValueError):
+            paid_amount = float(usd_amount)
+            paid_currency = "USD"
+            paypal_tx_id = order_id
+
+        user = get_current_user()
+        tx_ref = f"PP-{paypal_tx_id}"
+        database.record_payment(
+            user_id=user['id'],
+            amount=paid_amount,
+            currency=paid_currency,
+            transaction_ref=tx_ref,
+            payment_method='paypal',
+            phone=user.get('phone', ''),
+            paystack_status='success'
+        )
+        return jsonify({
+            "status": "success",
+            "message": f"PayPal payment of {paid_currency} {paid_amount:.2f} confirmed!",
+            "redirect_url": url_for('index')
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"PayPal capture error: {str(e)}"}), 500
 
 
 # ─── Worker Wallet ────────────────────────────────────────────────────────────
@@ -765,6 +926,17 @@ def update_settings():
     if ai_model:
         database.set_setting('ai_whisper_model', ai_model)
 
+    # PayPal settings
+    paypal_client_id = request.form.get('paypal_client_id', '').strip()
+    paypal_client_secret = request.form.get('paypal_client_secret', '').strip()
+    paypal_usd = request.form.get('paypal_entry_fee_usd', '').strip()
+    if paypal_client_id:
+        database.set_setting('paypal_client_id', paypal_client_id)
+    if paypal_client_secret:
+        database.set_setting('paypal_client_secret', paypal_client_secret)
+    if paypal_usd:
+        database.set_setting('paypal_entry_fee_usd', paypal_usd)
+
     flash('Settings updated successfully!', 'success')
     return redirect(url_for('admin_dashboard'))
 
@@ -870,6 +1042,10 @@ def admin_dashboard():
     ai_threshold = database.get_setting('ai_pass_threshold', '88')
     ai_model     = database.get_setting('ai_whisper_model', 'tiny')
 
+    paypal_client_id     = database.get_setting('paypal_client_id', '')
+    paypal_client_secret = database.get_setting('paypal_client_secret', '')
+    paypal_usd           = database.get_setting('paypal_entry_fee_usd', '5.00')
+
     return render_template('admin_dashboard.html',
                            tasks=tasks,
                            stats=stats,
@@ -890,7 +1066,10 @@ def admin_dashboard():
                            smtp_pass=smtp_pass,
                            ai_enabled=ai_enabled,
                            ai_threshold=ai_threshold,
-                           ai_model=ai_model)
+                           ai_model=ai_model,
+                           paypal_client_id=paypal_client_id,
+                           paypal_client_secret=paypal_client_secret,
+                           paypal_usd=paypal_usd)
 
 
 
