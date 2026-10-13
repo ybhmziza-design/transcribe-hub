@@ -379,8 +379,13 @@ def init_db():
     default_settings = {
         'entry_fee_amount': str(DEFAULT_ENTRY_FEE_AMOUNT),
         'entry_fee_currency': DEFAULT_ENTRY_FEE_CURRENCY,
-        'paystack_public_key': os.environ.get('PAYSTACK_PUBLIC_KEY', 'pk_test_sample_key_replace_with_yours'),
-        'paystack_secret_key': os.environ.get('PAYSTACK_SECRET_KEY', 'sk_test_sample_key_replace_with_yours'),
+        'paystack_public_key': os.environ.get('PAYSTACK_PUBLIC_KEY', ''),
+        'paystack_secret_key': os.environ.get('PAYSTACK_SECRET_KEY', ''),
+        'r2_public_url': os.environ.get('R2_PUBLIC_URL', 'https://pub-5befd43eda4542d3bd6060bc91f59062.r2.dev'),
+        'r2_endpoint_url': os.environ.get('R2_ENDPOINT_URL', 'https://12ced18125a43e40810d5f9b82ad8ae2.r2.cloudflarestorage.com'),
+        'r2_bucket_name': os.environ.get('R2_BUCKET_NAME', 'transcribe-tasks'),
+        'r2_access_key_id': os.environ.get('R2_ACCESS_KEY_ID', ''),
+        'r2_secret_access_key': os.environ.get('R2_SECRET_ACCESS_KEY', ''),
         'ai_auto_review_enabled': '1',
         'ai_pass_threshold': '88',
         'ai_whisper_model': 'tiny',
@@ -392,6 +397,8 @@ def init_db():
         existing = cursor.execute('SELECT key FROM settings WHERE key = ?', (k,)).fetchone()
         if not existing:
             cursor.execute('INSERT INTO settings (key, value) VALUES (?, ?)', (k, v))
+        elif not existing.get('value'):
+            cursor.execute('UPDATE settings SET value = ? WHERE key = ?', (v, k))
     conn.commit()
     conn.close()
 

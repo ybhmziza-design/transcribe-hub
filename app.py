@@ -1172,6 +1172,7 @@ def post_task():
                     video_type     = 'upload'
                     video_source   = f'/uploads/{safe_name}'
                     video_filename = safe_name
+                    flash(f"⚠️ Video saved locally, but Cloudflare R2 upload had an issue: {r2_result}", "warning")
             else:
                 flash('Please upload a supported video/audio file (MP4, WebM, MOV, MP3, WAV …)', 'error')
                 return redirect(url_for('post_task'))
