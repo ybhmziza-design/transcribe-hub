@@ -993,40 +993,51 @@ def toggle_user_paid(user_id):
 @require_admin
 def admin_dashboard():
     conn = database.get_db_connection()
-    tasks = conn.execute('''
-        SELECT t.*, tr.status AS transcription_status
-        FROM tasks t
-        LEFT JOIN transcriptions tr ON tr.task_id = t.id
-        ORDER BY t.created_at DESC
-    ''').fetchall()
+    try:
+        tasks = conn.execute('''
+            SELECT t.*, tr.status AS transcription_status
+            FROM tasks t
+            LEFT JOIN transcriptions tr ON tr.task_id = t.id
+            ORDER BY t.created_at DESC
+        ''').fetchall()
 
-    total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    paid_users  = conn.execute("SELECT COUNT(*) FROM users WHERE is_paid = 1").fetchone()[0]
-    entry_fees_collected = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'completed'").fetchone()[0]
+        total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        paid_users  = conn.execute("SELECT COUNT(*) FROM users WHERE is_paid = 1").fetchone()[0]
+        entry_fees_collected = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'completed'").fetchone()[0]
+        bounty_paid_row = conn.execute("SELECT COALESCE(SUM(reward), 0) FROM tasks WHERE status='completed'").fetchone()
+        bounty_paid = bounty_paid_row[0] if bounty_paid_row else 0.0
 
-    stats = {
-        'total':     len(tasks),
-        'open':      sum(1 for t in tasks if t['status'] == 'open'),
-        'claimed':   sum(1 for t in tasks if t['status'] == 'claimed'),
-        'submitted': sum(1 for t in tasks if t['status'] == 'submitted'),
-        'completed': sum(1 for t in tasks if t['status'] == 'completed'),
-        'bounty_paid': conn.execute(
-            "SELECT COALESCE(SUM(reward),0) FROM tasks WHERE status='completed'"
-        ).fetchone()[0],
-        'total_users': total_users,
-        'paid_users': paid_users,
-        'entry_fees_collected': entry_fees_collected
-    }
+        stats = {
+            'total':     len(tasks),
+            'open':      sum(1 for t in tasks if t['status'] == 'open'),
+            'claimed':   sum(1 for t in tasks if t['status'] == 'claimed'),
+            'submitted': sum(1 for t in tasks if t['status'] == 'submitted'),
+            'completed': sum(1 for t in tasks if t['status'] == 'completed'),
+            'bounty_paid': float(bounty_paid),
+            'total_users': int(total_users),
+            'paid_users': int(paid_users),
+            'entry_fees_collected': float(entry_fees_collected)
+        }
 
-    recent_users = conn.execute("SELECT * FROM users ORDER BY created_at DESC LIMIT 10").fetchall()
-    recent_payments = conn.execute('''
-        SELECT p.*, u.full_name, u.email
-        FROM payments p
-        JOIN users u ON p.user_id = u.id
-        ORDER BY p.created_at DESC LIMIT 10
-    ''').fetchall()
+        recent_users = conn.execute("SELECT * FROM users ORDER BY created_at DESC LIMIT 10").fetchall()
+        recent_payments = conn.execute('''
+            SELECT p.*, u.full_name, u.email
+            FROM payments p
+            JOIN users u ON p.user_id = u.id
+            ORDER BY p.created_at DESC LIMIT 10
+        ''').fetchall()
+    except Exception as e:
+        print("Error loading dashboard data:", e)
+        tasks = []
+        stats = {
+            'total': 0, 'open': 0, 'claimed': 0, 'submitted': 0, 'completed': 0,
+            'bounty_paid': 0.0, 'total_users': 0, 'paid_users': 0, 'entry_fees_collected': 0.0
+        }
+        recent_users = []
+        recent_payments = []
+    finally:
+        conn.close()
 
-    conn.close()
 
     paystack_pub = database.get_setting('paystack_public_key', '')
     paystack_sec = database.get_setting('paystack_secret_key', '')
