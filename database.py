@@ -44,13 +44,32 @@ class PgCursorWrapper:
         clean_q = query
         if '?' in clean_q:
             clean_q = re.sub(r'\?', '%s', clean_q)
+        # If this is an INSERT and does not specify RETURNING, append RETURNING id to capture lastrowid
+        is_insert = clean_q.strip().upper().startswith('INSERT INTO')
+        has_returning = 'RETURNING' in clean_q.upper()
+        if is_insert and not has_returning:
+            clean_q = clean_q.rstrip().rstrip(';') + ' RETURNING id;'
+            
         if params is not None:
             if isinstance(params, tuple):
                 params = list(params)
             self._cursor.execute(clean_q, params)
         else:
             self._cursor.execute(clean_q)
+
+        if is_insert and not has_returning:
+            try:
+                row = self._cursor.fetchone()
+                self._lastrowid = row['id'] if row and 'id' in row else None
+            except Exception:
+                self._lastrowid = None
+        else:
+            self._lastrowid = None
         return self
+
+    @property
+    def lastrowid(self):
+        return getattr(self, '_lastrowid', None)
 
     def fetchone(self):
         row = self._cursor.fetchone()
@@ -65,6 +84,7 @@ class PgCursorWrapper:
     @property
     def rowcount(self):
         return self._cursor.rowcount
+
 
 
 class PgConnectionWrapper:
@@ -394,10 +414,10 @@ def init_db():
         'paypal_entry_fee_usd': '5.00',
     }
     for k, v in default_settings.items():
-        existing = cursor.execute('SELECT key FROM settings WHERE key = ?', (k,)).fetchone()
+        existing = cursor.execute('SELECT key, value FROM settings WHERE key = ?', (k,)).fetchone()
         if not existing:
             cursor.execute('INSERT INTO settings (key, value) VALUES (?, ?)', (k, v))
-        elif not existing.get('value'):
+        elif not existing['value']:
             cursor.execute('UPDATE settings SET value = ? WHERE key = ?', (v, k))
     conn.commit()
     conn.close()

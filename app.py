@@ -1195,10 +1195,14 @@ def post_task():
         ''', (title, description, category, language, difficulty, reward,
               duration_est, deadline, guidelines, video_type, video_source, video_filename))
         task_id = cursor.lastrowid
-        cursor.execute(
-            "INSERT INTO task_activities (task_id, actor, action, message) VALUES (?,?,?,?)",
-            (task_id, 'Admin', 'created', f'Task published — earnings ${reward:.2f}')
-        )
+        if not task_id:
+            row = conn.execute("SELECT id FROM tasks WHERE title=? ORDER BY id DESC LIMIT 1", (title,)).fetchone()
+            task_id = row['id'] if row else None
+        if task_id:
+            cursor.execute(
+                "INSERT INTO task_activities (task_id, actor, action, message) VALUES (?,?,?,?)",
+                (task_id, 'Admin', 'created', f'Task published — earnings ${reward:.2f}')
+            )
         conn.commit()
         conn.close()
 
