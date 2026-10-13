@@ -1632,6 +1632,33 @@ def serve_upload(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename, conditional=True)
 
 
+@app.errorhandler(500)
+def internal_error(error):
+    import traceback
+    tb = traceback.format_exc()
+    print("="*60)
+    print("500 INTERNAL SERVER ERROR TRACEBACK:")
+    print(tb)
+    print("="*60)
+    # If admin or testing, render the exact error so we can fix it immediately
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head><title>Application Error</title>
+    <style>body {{ font-family: monospace; background: #0f172a; color: #f87171; padding: 30px; }}
+           pre {{ background: #1e293b; color: #f1f5f9; padding: 20px; border-radius: 8px; overflow: auto; border: 1px solid #334155; }}
+           a {{ color: #38bdf8; }}
+    </style></head>
+    <body>
+        <h2>⚠️ Application Error (500)</h2>
+        <p>Details for troubleshooting:</p>
+        <pre>{tb}</pre>
+        <p><a href="/">← Return to Home</a> | <a href="/admin/login">Admin Login</a></p>
+    </body>
+    </html>
+    """, 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🚀 TranscribeHub running on http://127.0.0.1:{port}")
