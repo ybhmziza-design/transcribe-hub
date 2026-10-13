@@ -304,7 +304,7 @@
                         Transcriber: <strong class="text-slate-200">{{ task.claimer_nickname }}</strong> ·
                         {% endif %}
                         Earnings: <strong class="text-emerald-400">${{ "%.2f"|format(task.reward) }}</strong> ·
-                        Posted {{ task.created_at[:10] }}
+                        Posted {{ (task.created_at|string)[:10] }}
                     </div>
                 </div>
 

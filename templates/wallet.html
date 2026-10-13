@@ -209,7 +209,7 @@
                             <span class="px-2 py-0.5 rounded-full bg-slate-800 text-xs">{{ e.category }}</span>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-xs hidden sm:table-cell">
-                            {{ e.reviewed_at[:10] if e.reviewed_at else '—' }}
+                            {{ (e.reviewed_at|string)[:10] if e.reviewed_at else '—' }}
                         </td>
                         <td class="px-5 py-4 text-right font-black text-emerald-400">
                             ${{ "%.2f"|format(e.reward) }}
@@ -261,7 +261,7 @@
                             <span class="px-2 py-0.5 rounded-full bg-slate-800 text-xs">{{ p.category }}</span>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-xs hidden sm:table-cell">
-                            {{ p.submitted_at[:10] if p.submitted_at else '—' }}
+                            {{ (p.submitted_at|string)[:10] if p.submitted_at else '—' }}
                         </td>
                         <td class="px-5 py-4 text-right font-black text-amber-400">
                             ${{ "%.2f"|format(p.reward) }}
@@ -299,8 +299,9 @@
                             <span class="px-2 py-0.5 rounded-full bg-slate-800 text-xs">{{ a.category }}</span>
                         </td>
                         <td class="px-5 py-4 text-slate-400 text-xs hidden sm:table-cell">
-                            {{ a.claimed_at[:10] if a.claimed_at else '—' }}
+                            {{ (a.claimed_at|string)[:10] if a.claimed_at else '—' }}
                         </td>
+
                         <td class="px-5 py-4 text-right font-black text-indigo-400">
                             ${{ "%.2f"|format(a.reward) }}
                         </td>

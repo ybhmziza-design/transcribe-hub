@@ -24,7 +24,7 @@
             <h1 class="text-xl font-extrabold text-white">{{ task.title }}</h1>
             <p class="text-xs text-slate-400 mt-1">
                 Submitted by <strong class="text-slate-200">{{ transcription.transcriber_nickname or 'Transcriber' }}</strong>
-                {% if transcription.submitted_at %} on {{ transcription.submitted_at[:16] }}{% endif %}
+                {% if transcription.submitted_at %} on {{ (transcription.submitted_at|string)[:16] }}{% endif %}
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
