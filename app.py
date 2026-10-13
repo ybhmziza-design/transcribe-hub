@@ -785,6 +785,9 @@ def wallet():
     total_earned = sum(r['reward'] for r in earnings_history)
     total_pending = sum(r['reward'] for r in pending_tasks)
 
+    perf         = database.get_worker_performance(user['id'])
+    active_count = len(active_tasks)
+
     conn.close()
     return render_template('wallet.html',
                            worker=dict(fresh_user),
@@ -792,7 +795,9 @@ def wallet():
                            pending_tasks=pending_tasks,
                            active_tasks=active_tasks,
                            total_earned=total_earned,
-                           total_pending=total_pending)
+                           total_pending=total_pending,
+                           perf=perf,
+                           active_count=active_count)
 
 
 @app.route('/wallet/update-payout', methods=['POST'])
@@ -1283,11 +1288,15 @@ def task_detail(task_id):
     conn.close()
 
     user = get_current_user()
+    perf         = database.get_worker_performance(user['id']) if user else None
+    active_count = database.get_worker_active_task_count(user['id']) if user else 0
     return render_template('task_detail.html',
                            task=task,
                            activities=activities,
                            transcription=transcription,
-                           user=user)
+                           user=user,
+                           perf=perf,
+                           active_count=active_count)
 
 
 # ─── Claim Task (Requires Login + Entry Fee Payment) ──────────────────────────
@@ -1296,6 +1305,23 @@ def task_detail(task_id):
 @require_paid_worker
 def claim_task(task_id):
     user = get_current_user()
+
+    # ── Performance tier slot-limit check ─────────────────────────────────────
+    perf        = database.get_worker_performance(user['id'])
+    active_count = database.get_worker_active_task_count(user['id'])
+    if active_count >= perf['max_tasks']:
+        tier     = perf['tier']
+        max_t    = perf['max_tasks']
+        rate     = perf['approval_rate']
+        flash(
+            f'⛔ Task limit reached. As a {tier} (approval rate: {rate}%), '
+            f'you can hold up to {max_t} task{"s" if max_t != 1 else ""} at once. '
+            f'Complete or release a current task first. '
+            f'Higher approval rates unlock more simultaneous tasks.',
+            'warning'
+        )
+        return redirect(url_for('task_detail', task_id=task_id))
+    # ──────────────────────────────────────────────────────────────────────────
 
     conn = database.get_db_connection()
     task = conn.execute('SELECT * FROM tasks WHERE id = ?', (task_id,)).fetchone()

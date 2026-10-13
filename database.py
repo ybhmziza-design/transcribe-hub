@@ -315,6 +315,69 @@ def get_user_by_id(user_id: int):
     return dict(user) if user else None
 
 
+# ─── Worker Performance Tier ──────────────────────────────────────────────────
+
+def get_worker_performance(user_id: int) -> dict:
+    """
+    Returns a dict with:
+      - total_submitted: number of tasks reviewed for this worker
+      - approved: number approved (by admin or AI)
+      - rejected: number rejected
+      - approval_rate: float 0.0–100.0
+      - tier: 'Starter' | 'Worker' | 'Senior' | 'Expert'
+      - max_tasks: int — how many tasks they can hold simultaneously
+      - tier_color: Tailwind color token for the badge
+    """
+    conn = get_db_connection()
+    row = conn.execute('''
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status IN ('approved', 'ai_approved') THEN 1 ELSE 0 END) AS approved,
+            SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected
+        FROM transcriptions
+        WHERE transcriber_id = ? AND status NOT IN ('draft', 'submitted', 'revision_requested')
+    ''', (user_id,)).fetchone()
+    conn.close()
+
+    total    = row['total']    if row else 0
+    approved = (row['approved'] or 0) if row else 0
+    rejected = (row['rejected'] or 0) if row else 0
+    rate     = (approved / total * 100) if total > 0 else 0.0
+
+    # Require at least 1 reviewed task to leave Starter
+    if total == 0 or approved == 0:
+        tier, max_tasks, color = 'Starter', 1, 'slate'
+    elif rate >= 90:
+        tier, max_tasks, color = 'Expert',  5, 'emerald'
+    elif rate >= 75:
+        tier, max_tasks, color = 'Senior',  3, 'blue'
+    elif rate >= 60:
+        tier, max_tasks, color = 'Worker',  2, 'amber'
+    else:
+        tier, max_tasks, color = 'Starter', 1, 'slate'
+
+    return {
+        'total_submitted': total,
+        'approved': approved,
+        'rejected': rejected,
+        'approval_rate': round(rate, 1),
+        'tier': tier,
+        'max_tasks': max_tasks,
+        'tier_color': color,
+    }
+
+
+def get_worker_active_task_count(user_id: int) -> int:
+    """Returns how many tasks this worker currently holds (status='claimed')."""
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM tasks WHERE claimed_by = ? AND status = 'claimed'",
+        (user_id,)
+    ).fetchone()
+    conn.close()
+    return row['cnt'] if row else 0
+
+
 # ─── Payment Recording ─────────────────────────────────────────────────────────
 
 def record_payment(user_id: int, amount: float, currency: str, transaction_ref: str, payment_method: str = "paystack", phone: str = "", paystack_status: str = "success") -> str:

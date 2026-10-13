@@ -139,12 +139,34 @@
 
                         {% elif current_user and current_user.is_paid %}
                             <!-- State 3: Active, paid worker -->
+
+                            {% if perf %}
+                            <!-- Tier badge + slot indicator -->
+                            <div class="mb-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold {% if perf.tier == 'Expert' %}text-emerald-400{% elif perf.tier == 'Senior' %}text-blue-400{% elif perf.tier == 'Worker' %}text-amber-400{% else %}text-slate-400{% endif %}">
+                                        {% if perf.tier == 'Expert' %}⭐{% elif perf.tier == 'Senior' %}🔵{% elif perf.tier == 'Worker' %}🟡{% else %}⚪{% endif %}
+                                        {{ perf.tier }}
+                                    </span>
+                                    <span class="text-slate-500">{{ perf.approval_rate }}% approval</span>
+                                </div>
+                                <span class="text-slate-400 font-semibold">{{ active_count }} / {{ perf.max_tasks }} slots used</span>
+                            </div>
+                            {% endif %}
+
+                            {% if perf and active_count >= perf.max_tasks %}
+                            <div class="w-full py-3.5 px-4 rounded-xl bg-slate-800 text-slate-500 font-bold text-sm text-center cursor-not-allowed select-none">
+                                ⛔ Task Slots Full ({{ active_count }}/{{ perf.max_tasks }})
+                            </div>
+                            <p class="text-[11px] text-slate-500 text-center mt-2">Finish or release a current task first.{% if perf.tier != 'Expert' %} Higher approval rates unlock more slots.{% endif %}</p>
+                            {% else %}
                             <form action="{{ url_for('claim_task', task_id=task.id) }}" method="POST">
                                 <button type="submit" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2">
-                                    Claim Task & Open Studio →
+                                    Claim Task &amp; Open Studio →
                                 </button>
                                 <p class="text-[11px] text-slate-400 text-center mt-2">🔒 Locks for 48 hours for you ({{ current_user.full_name }}).</p>
                             </form>
+                            {% endif %}
 
                         {% elif is_admin %}
                             <div class="p-3 rounded-xl bg-slate-800/60 text-center text-xs text-slate-400">
