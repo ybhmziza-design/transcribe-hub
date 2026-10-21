@@ -91,6 +91,24 @@
         </form>
     </div>
 
+    <!-- Starter Tier Banner -->
+    {% if is_starter_mode %}
+    <div class="mb-6 p-4 rounded-2xl bg-indigo-950/40 border border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">🎯</span>
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-indigo-400">Starter Tier Assignment</p>
+                <p class="text-xs text-slate-300">
+                    As a Starter, you are assigned <strong>1 video task</strong> at a time. Complete and get tasks approved to reach <strong>Worker / Senior / Expert</strong> tiers and choose freely from all videos!
+                </p>
+            </div>
+        </div>
+        <a href="{{ url_for('wallet') }}" class="shrink-0 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold border border-slate-700 transition text-center">
+            View My Tier Progress →
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Task Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for task in tasks %}

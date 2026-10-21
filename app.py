@@ -1131,6 +1131,43 @@ def index():
     ).fetchall()]
 
     conn.close()
+
+    # ── Tier-based Task Visibility ────────────────────────────────────────────
+    # Starters (new or low-approval workers) only see 1 random available task
+    # so they don't cherry-pick and must prove themselves first.
+    # Higher tiers (Worker, Senior, Expert), Admins, and prospective visitors see all tasks.
+    user = get_current_user()
+    user_perf = None
+    is_starter_mode = False
+
+    if user and not is_admin():
+        user_perf = database.get_worker_performance(user['id'])
+        if user_perf and user_perf.get('tier') == 'Starter':
+            is_starter_mode = True
+            import random
+
+            # First, check if the starter already has a claimed task
+            claimed_by_user = [t for t in tasks if t['claimed_by'] == user['id']]
+            if claimed_by_user:
+                # Always show their currently claimed task
+                tasks = claimed_by_user[:1]
+            else:
+                # Filter for available open tasks
+                open_tasks = [t for t in tasks if t['status'] == 'open']
+                if open_tasks:
+                    # Check if session already has an assigned task_id that is still open
+                    assigned_task_id = session.get(f"starter_assigned_task_{user['id']}")
+                    assigned_task = next((t for t in open_tasks if t['id'] == assigned_task_id), None)
+                    if not assigned_task:
+                        # Pick a random open task and store in session for consistency
+                        assigned_task = random.choice(open_tasks)
+                        session[f"starter_assigned_task_{user['id']}"] = assigned_task['id']
+                    tasks = [assigned_task]
+                else:
+                    # If no open tasks match the filter, show at most 1 task or empty
+                    tasks = tasks[:1] if tasks else []
+
+
     return render_template(
         'index.html',
         tasks=tasks,
@@ -1140,7 +1177,10 @@ def index():
         selected_difficulty=difficulty,
         search_query=search,
         sort_by=sort_by,
+        user_perf=user_perf,
+        is_starter_mode=is_starter_mode,
     )
+
 
 
 # ─── Post / Edit / Delete Task (Admin Only) ───────────────────────────────────
@@ -1412,8 +1452,14 @@ def release_task(task_id):
     )
     conn.commit()
     conn.close()
+
+    # Clear assigned starter task from session if released
+    if user:
+        session.pop(f"starter_assigned_task_{user['id']}", None)
+
     flash('Task released back to the marketplace.', 'info')
     return redirect(url_for('task_detail', task_id=task_id))
+
 
 
 # ─── Transcription Studio ─────────────────────────────────────────────────────
