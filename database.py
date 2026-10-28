@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 # ─── Default Credentials & Defaults ──────────────────────────────────────────
 DEFAULT_ADMIN_USERNAME = "tanuialpha2@gmail.com"
 DEFAULT_ADMIN_PASSWORD = "1234"
-DEFAULT_ENTRY_FEE_AMOUNT = 573
+DEFAULT_ENTRY_FEE_AMOUNT = 273
 DEFAULT_ENTRY_FEE_CURRENCY = "KES"
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -432,6 +432,8 @@ def init_db():
             cursor.execute('INSERT INTO settings (key, value) VALUES (?, ?)', (k, v))
         elif not existing['value']:
             cursor.execute('UPDATE settings SET value = ? WHERE key = ?', (v, k))
+    # Automatically update entry fee amount to 273 if it was still at the old defaults (573 or 2500)
+    cursor.execute("UPDATE settings SET value = ? WHERE key = 'entry_fee_amount' AND value IN ('573', '2500')", (str(DEFAULT_ENTRY_FEE_AMOUNT),))
     conn.commit()
     conn.close()
 

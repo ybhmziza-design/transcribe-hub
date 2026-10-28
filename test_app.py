@@ -32,7 +32,7 @@ class TranscribeHubPaystackTests(unittest.TestCase):
 
     def test_paystack_settings_default(self):
         amount, curr = database.get_entry_fee()
-        self.assertEqual(amount, 573)
+        self.assertEqual(amount, 273)
         self.assertEqual(curr, 'KES')
 
     def test_admin_updates_paystack_settings(self):
@@ -42,7 +42,7 @@ class TranscribeHubPaystackTests(unittest.TestCase):
         r = self.client.post('/admin/settings', data={
             'paystack_public_key': 'pk_live_custom123',
             'paystack_secret_key': 'sk_live_custom456',
-            'entry_fee_amount': '573',
+            'entry_fee_amount': '273',
             'entry_fee_currency': 'KES'
         }, follow_redirects=True)
         self.assertEqual(r.status_code, 200)
